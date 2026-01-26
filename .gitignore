@@ -1,0 +1,17 @@
+# Ignore all node_modules anywhere in the project
+node_modules/
+
+# Or explicitly (optional, extra clear)
+admin/node_modules/
+server/node_modules/
+
+# Environment files
+.env
+
+# Build outputs
+dist/
+build/
+
+# Logs
+npm-debug.log*
+yarn-error.log*
