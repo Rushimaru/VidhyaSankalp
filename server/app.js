@@ -1,27 +1,20 @@
-const express = require("express");
-const cors = require("cors");
-const bodyParser = require("body-parser");
 require("dotenv").config();
-
+const express = require("express");
 const connectDB = require("./config/db");
 
 const app = express();
 
-// Connect DB
+// Connect Database
 connectDB();
 
 // Middleware
-app.use(cors());
-app.use(bodyParser.json());
-app.use(bodyParser.urlencoded({ extended: true }));
+app.use(express.json());
 
-app.get("/", (req, res) => {
-  res.send("VidhyaSankalp Backend is running 🚀");
-});
+// Routes
+app.use("/api/auth", require("./routes/auth.routes"));
+app.use("/api/superadmin", require("./routes/superadmin.routes"));
+app.use("/api/admin", require("./routes/admin.routes"));
+app.use("/api/faculty", require("./routes/faculty.routes"));
+app.use("/api/student", require("./routes/student.routes"));
 
-app.use("/api", require("./routes/api.routes"));
-
-const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => {
-  console.log(`Server running at http://localhost:${PORT}`);
-});
+module.exports = app;
