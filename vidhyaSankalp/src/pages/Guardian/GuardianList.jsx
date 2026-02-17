@@ -327,7 +327,7 @@ const GuardianList = () => {
                         <td>
                           <div className="d-flex align-items-center">
                             <img
-                              src={`/assets/images/thumbs/${guardian.image}`}
+                              src={`/../src/assets/images/thumbs/${guardian.image}`}
                               alt={guardian.name}
                               className="flex-shrink-0 me-12 radius-8"
                               style={{ width: '40px', height: '40px', objectFit: 'cover' }}
@@ -340,7 +340,7 @@ const GuardianList = () => {
                         <td>
                           <div className="d-flex align-items-center">
                             <img
-                              src={`/assets/images/thumbs/${guardian.childImage}`}
+                              src={`/../src/assets/images/thumbs/${guardian.childImage}`}
                               alt={guardian.childName}
                               className="flex-shrink-0 me-12 radius-8"
                               style={{ width: '40px', height: '40px', objectFit: 'cover' }}

@@ -289,7 +289,7 @@ const STUDENT = {
   academicYear: "Jun 2025/2026",
   phone: "789678456",
   email: "set@example.com",
-  photo: "assets/images/thumbs/student-details-img.png",
+  photo: "../src/assets/images/thumbs/student-details-img.png",
 };
 const GUARDIANS = [
   {
@@ -991,7 +991,7 @@ const StudentDetails = () => {
                           <div className="d-flex align-items-center gap-12">
                             <figure className="w-48-px h-48-px rounded-circle overflow-hidden mb-0">
                               <img
-                                src={`assets/images/thumbs/${g.img}`}
+                                src={`../src/assets/images/thumbs/${g.img}`}
                                 alt="Guardian"
                                 className="w-100 h-100 object-fit-cover"
                               />
@@ -1554,7 +1554,7 @@ const StudentDetails = () => {
                         <td className="px-16 py-12 text-sm text-start">
                           <div className="d-flex align-items-center gap-12">
                             <img
-                              src={`assets/images/thumbs/${r.img}`}
+                              src={`../src/assets/images/thumbs/${r.img}`}
                               alt={r.book}
                               className="flex-shrink-0 radius-4 w-36-px h-36-px object-fit-cover"
                             />

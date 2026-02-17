@@ -343,7 +343,7 @@ const TeacherList = () => {
                         <td>
                           <div className="d-flex align-items-center">
                             <img
-                              src={`/assets/images/thumbs/${teacher.image}`}
+                              src={`/../src/assets/images/thumbs/${teacher.image}`}
                               alt={teacher.name}
                               className="flex-shrink-0 me-12 radius-8"
                               style={{ width: '40px', height: '40px', objectFit: 'cover' }}

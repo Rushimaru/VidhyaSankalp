@@ -4,18 +4,6 @@ import { Link, useLocation } from 'react-router-dom';
 // ─── Menu configuration with routes ──────────────────────────────────────────
 const menuItems = [
   {
-    key: 'dashboard',
-    icon: 'ri-home-4-line',
-    label: 'Dashboard',
-    submenu: [
-      { label: 'School',   path: '/'               },
-      { label: 'Student',  path: '/students'        },
-      { label: 'Teacher',  path: '/teachers'        },
-      { label: 'Parent',   path: '/guardians'       },
-      { label: 'LMS',      path: '/lms'             },
-    ],
-  },
-  {
     key: 'students',
     icon: 'ri-graduation-cap-line',
     label: 'Students',
@@ -160,8 +148,11 @@ const menuItems = [
   },
 ];
 
+// Dashboard should be at top, followed by other single items
+const dashboardItem = { key: 'dashboard', icon: 'ri-home-4-line', label: 'Dashboard', path: '/' };
+
 const singleMenuItems = [
-  { key: 'certificate',   icon: 'ri-home-4-line',           label: 'Certificate',       path: '/certificate'   },
+  { key: 'certificate',   icon: 'ri-home-4-line',            label: 'Certificate',       path: '/certificate'   },
   { key: 'notice',        icon: 'ri-booklet-line',           label: 'Notice Board',      path: '/notice-board'  },
   { key: 'event',         icon: 'ri-calendar-event-line',    label: 'Event',             path: '/events'        },
   { key: 'message',       icon: 'ri-message-2-line',         label: 'Message',           path: '/messages'      },
@@ -190,15 +181,52 @@ const Sidebar = () => {
   const [openDropdowns, setOpenDropdowns]           = useState(getInitialOpen);
   const [isProfileDropdownOpen, setIsProfileDropdownOpen] = useState(false);
 
-  const toggleSidebar = () => setIsSidebarCollapsed((p) => !p);
-  const toggleDropdown = (key) =>
-    setOpenDropdowns((prev) => ({ ...prev, [key]: !prev[key] }));
+  const toggleSidebar = () => {
+    const sidebar = document.querySelector('.sidebar');
+    const body = document.body;
+    const toggleIcon = document.querySelector('.sidebar-toggle i');
+    
+    if (sidebar) {
+      // Toggle collapsed state on sidebar
+      const isCollapsed = sidebar.classList.contains('sidebar-collapsed');
+      
+      if (isCollapsed) {
+        sidebar.classList.remove('sidebar-collapsed');
+        body.classList.remove('sidebar-collapsed');
+        if (toggleIcon) {
+          toggleIcon.className = 'ri-contract-left-line';
+        }
+        setIsSidebarCollapsed(false);
+      } else {
+        sidebar.classList.add('sidebar-collapsed');
+        body.classList.add('sidebar-collapsed');
+        if (toggleIcon) {
+          toggleIcon.className = 'ri-contract-right-line';
+        }
+        setIsSidebarCollapsed(true);
+      }
+    }
+  };
+
+  const toggleDropdown = (key) => {
+    setOpenDropdowns((prev) => {
+      // Close all other dropdowns, open only the clicked one
+      const newState = {};
+      Object.keys(prev).forEach((k) => {
+        newState[k] = false;
+      });
+      newState[key] = !prev[key]; // Toggle the clicked dropdown
+      return newState;
+    });
+  };
+
   const closeSidebar = () => {
     document.querySelector('.sidebar')?.classList.remove('active');
     document.querySelector('.overlay')?.classList.remove('active');
   };
 
   const isActive = (path) => currentPath === path;
+  
   const isSubmenuActive = (submenu) =>
     submenu?.some((s) => currentPath === s.path || currentPath.startsWith(s.path + '/'));
 
@@ -216,9 +244,9 @@ const Sidebar = () => {
         {/* ── Logo ─────────────────────────────────────────────────────── */}
         <div className="sidebar-logo d-flex align-items-center justify-content-between">
           <Link to="/" className="">
-            <img src="/assets/images/logo.png"       alt="logo"      className="light-logo" />
-            <img src="/assets/images/logo-light.png" alt="logo"      className="dark-logo"  />
-            <img src="/assets/images/logo-icon.png"  alt="logo icon" className="logo-icon"  />
+            <img src="../src/assets/images/logo.png"       alt="logo"      className="light-logo" />
+            <img src="../src/assets/images/logo-light.png" alt="logo"      className="dark-logo"  />
+            <img src="../src/assets/images/logo-icon.png"  alt="logo icon" className="logo-icon"  />
           </Link>
           <button
             type="button"
@@ -239,7 +267,7 @@ const Sidebar = () => {
             >
               <span className="d-flex align-items-start gap-10">
                 <img
-                  src="/assets/images/thumbs/leave-request-img2.png"
+                  src="/../src/assets/images/thumbs/leave-request-img2.png"
                   alt="Profile"
                   className="w-40-px h-40-px rounded-circle object-fit-cover flex-shrink-0"
                 />
@@ -282,7 +310,15 @@ const Sidebar = () => {
         <div className="sidebar-menu-area">
           <ul className="sidebar-menu" id="sidebar-menu">
 
-            {/* Dropdown items */}
+            {/* Dashboard (single item at top) */}
+            <li className={isActive(dashboardItem.path) ? 'active-page' : ''}>
+              <Link to={dashboardItem.path} className={isActive(dashboardItem.path) ? 'active-menu' : ''}>
+                <i className={dashboardItem.icon}></i>
+                <span>{dashboardItem.label}</span>
+              </Link>
+            </li>
+
+            {/* Dropdown items (Students, Teachers, etc.) */}
             {menuItems.map((item) => {
               const open         = openDropdowns[item.key];
               const parentActive = isSubmenuActive(item.submenu);
@@ -317,7 +353,7 @@ const Sidebar = () => {
               );
             })}
 
-            {/* Single items */}
+            {/* Other single items (Certificate, Notice Board, etc.) */}
             {singleMenuItems.map((item) => (
               <li key={item.key} className={isActive(item.path) ? 'active-page' : ''}>
                 <Link to={item.path} className={isActive(item.path) ? 'active-menu' : ''}>

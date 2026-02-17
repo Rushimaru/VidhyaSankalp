@@ -148,7 +148,7 @@ const TEACHER = {
   name: "Marvin McKinney",
   id: "AD1256589",
   subject: "Mathematics",
-  photo: "assets/images/thumbs/teacher-details-img.png",
+  photo: "../src/assets/images/thumbs/teacher-details-img.png",
   class: "Class 6 (2025-26)",
   contractType: "Permanent",
   shift: "Morning",
@@ -1430,7 +1430,7 @@ const TeacherDetails = () => {
                         <td className="px-16 py-12 text-sm text-start">
                           <div className="d-flex align-items-center gap-12">
                             <img
-                              src={`assets/images/thumbs/${r.img}`}
+                              src={`../src/assets/images/thumbs/${r.img}`}
                               alt={r.book}
                               className="flex-shrink-0 radius-4 w-36-px h-36-px object-fit-cover"
                             />

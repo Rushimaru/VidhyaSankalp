@@ -74,7 +74,7 @@ const GuardianDetails = () => {
               <div className="max-w-300-px w-100 text-center">
                 <figure className="mb-24 w-120-px h-120-px mx-auto rounded-circle overflow-hidden">
                   <img
-                    src={`/assets/images/thumbs/${guardian.image}`}
+                    src={`/../src/assets/images/thumbs/${guardian.image}`}
                     alt={guardian.name}
                     className="w-100 h-100 object-fit-cover"
                   />
@@ -144,7 +144,7 @@ const GuardianDetails = () => {
                       <div className="d-flex align-items-center gap-12">
                         <figure className="w-48-px h-48-px rounded-circle overflow-hidden mb-0">
                           <img
-                            src={`/assets/images/thumbs/${child.image}`}
+                            src={`/../src/assets/images/thumbs/${child.image}`}
                             alt={child.name}
                             className="flex-shrink-0 w-100 h-100 object-fit-cover"
                           />
@@ -185,7 +185,7 @@ const GuardianDetails = () => {
           <div className="d-flex align-items-center gap-20">
             <figure className="w-72-px h-72-px rounded-circle overflow-hidden mb-0">
               <img
-                src={`/assets/images/thumbs/${guardian.image}`}
+                src={`/../src/assets/images/thumbs/${guardian.image}`}
                 alt={guardian.name}
                 className="w-100 h-100 object-fit-cover"
               />
