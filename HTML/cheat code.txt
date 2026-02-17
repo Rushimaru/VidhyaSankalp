@@ -1,0 +1,58 @@
+Break HTML into React Components :
+| HTML Section | React Component |
+| ------------ | --------------- |
+| Header       | Header.jsx      |
+| Navbar       | Navbar.jsx      |
+| Hero section | Hero.jsx        |
+| About        | About.jsx       |
+| Footer       | Footer.jsx      |
+
+Example :
+HTML - 
+<header>
+  <h1>Welcome</h1>
+</header>
+
+React -
+export default function Header() {
+  return (
+    <header>
+      <h1>Welcome</h1>
+    </header>
+  )
+}
+
+Convert HTML → JSX Syntax :
+| HTML              | React JSX             |
+| ----------------- | --------------------- |
+| class             | className             |
+| for               | htmlFor               |
+| onclick           | onClick               |
+| style="color:red" | style={{color:'red'}} |
+
+Remove jQuery :
+| jQuery           | React alternative     |
+| ---------------- | --------------------- |
+| DOM manipulation | useState              |
+| Document ready   | useEffect             |
+| Click events     | onClick               |
+| Show / hide      | conditional rendering |
+
+Stucture :
+src/
+ ├ components/
+ │   ├ Header.jsx
+ │   ├ Footer.jsx
+ │   └ Navbar.jsx
+ │
+ ├ pages/
+ │   ├ Home.jsx
+ │   ├ About.jsx
+ │   └ Contact.jsx
+ │
+ ├ assets/
+ │   ├ css/
+ │   ├ images/
+ │   └ js/
+ │
+ └ App.jsx
