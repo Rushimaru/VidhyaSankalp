@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Outlet } from 'react-router-dom';
 import Sidebar from './components/Sidebar';
 import Navbar from './components/Navbar';
 import Footer from './components/Footer';
@@ -28,6 +28,82 @@ import GuardianList from './pages/Guardian/GuardianList';
 import EditGuardian from './pages/Guardian/EditGuardian';
 import GuardianDetails from './pages/Guardian/GuardianDetails';
 
+// classes
+import SectionList from './pages/classes/SectionList';
+import SubjectList from './pages/classes/SubjectList';
+import ClassList from './pages/classes/ClassList';
+import ClassRoomList from './pages/classes/ClassRoomList';
+
+// examinations
+import ExamList from './pages/examinations/ExamList';
+import ExamSchedule from './pages/examinations/ExamSchedule';
+import ExamResult from './pages/examinations/ExamResult';
+
+// fees
+import FeesCollect from './pages/fees/FeesCollect';
+import FeesType from './pages/fees/FeesType';
+import FeesGroup from './pages/fees/FeesGroup';
+import FeesDiscount from './pages/fees/FeesDiscount';
+
+// attendance
+import StudentAttendance from './pages/attendance/StudentAttendance';
+import TeacherAttendance from './pages/attendance/TeacherAttendance';
+import EmployeeAttendance from './pages/attendance/EmployeeAttendance';
+
+// leave
+import LeaveTypes from './pages/leaves/LeaveTypes';
+import LeaveRequest from './pages/leaves/LeaveRequest';
+
+// certificate
+import Certificate from './pages/certificate/Certificate';
+
+// library
+import BooksList from './pages/library/BooksList';
+import MembersList from './pages/library/MembersList';
+import MemberDetails from './pages/library/MemberDetails';
+import IssueReturn from './pages/library/IssueReturn';
+
+// accounts
+import IncomeHeadList from './pages/accounts/IncomeHeadList';
+import IncomeList from './pages/accounts/IncomeList';
+import ExpenseHeadList from './pages/accounts/ExpenseHeadList';
+import ExpenseList from './pages/accounts/ExpenseList';
+import Transaction from './pages/accounts/Transaction';
+
+// HRM 
+import EmployeeList from './pages/hrm/EmployeeList';
+import EmployeeDetails from './pages/hrm/EmployeeDetails';
+import AddNewEmployee from './pages/hrm/AddNewEmployee';
+import Payroll from './pages/hrm/Payroll';
+import Designation from './pages/hrm/Designation';
+import Department from './pages/hrm/Department';
+
+// notice
+import NoticeBoard from './pages/notice/NoticeBoard';
+
+// events
+import Event from './pages/events/Event';
+
+// messages
+import Message from './pages/message/Message';
+
+// subscription
+import SubscriptionPlan from './pages/subscription/SubscriptionPlan';
+
+// roles
+import RoleAccess from './pages/role/RoleAccess';
+import AssignRole from './pages/role/AssignRole';
+
+// auth
+import Login from './pages/auth/Login';
+import Register from './pages/auth/Register';
+
+// settings
+import GeneralSettings from './pages/settings/GeneralSettings';
+import NotificationSettings from './pages/settings/NotificationSettings';
+import Currencies from './pages/settings/Currencies';
+import Languages from './pages/settings/Languages';
+
 // ─── Placeholder pages (replace with real components later) ──────────────────
 const Placeholder = ({ title }) => (
   <div className="dashboard-main-body">
@@ -42,7 +118,7 @@ const Placeholder = ({ title }) => (
 );
 
 // ─── Layout wrapper (Sidebar + Navbar + content area + Footer) ───────────────
-const Layout = ({ children }) => {
+const Layout = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   return (
@@ -50,7 +126,7 @@ const Layout = ({ children }) => {
       <Sidebar />
       <main className="dashboard-main">
         <Navbar onToggleSidebar={() => setSidebarOpen((p) => !p)} />
-        {children}
+        <Outlet />
         <Footer />
       </main>
     </div>
@@ -61,104 +137,104 @@ const Layout = ({ children }) => {
 const App = () => {
   return (
     <Router>
-      <Layout>
-        <Routes>
+      <Routes>
+        {/* Public routes without layout */}
+        <Route path="/auth/login" element={<Login />} />
+        <Route path="/auth/register" element={<Register />} />
+
+        {/* Protected routes with layout */}
+        <Route path="/" element={<Layout />}>
           {/* Dashboard */}
-          <Route path="/"                         element={<Dashboard />} />
+          <Route index element={<Dashboard />} />
 
           {/* Students */}
-          <Route path="/students"                 element={<StudentList />} />
-          <Route path="/students/add"             element={<AddStudent />} />
-          <Route path="/students/edit"            element={<EditStudent />} />
-          <Route path="/students/details"         element={<StudentDetails />} />
-          <Route path="/students/suspend"         element={<SuspendedStudent />} />
-          <Route path="/students/categories"      element={<StudentCategory />} />
+          <Route path="students" element={<StudentList />} />
+          <Route path="students/add" element={<AddStudent />} />
+          <Route path="students/edit" element={<EditStudent />} />
+          <Route path="students/details" element={<StudentDetails />} />
+          <Route path="students/suspend" element={<SuspendedStudent />} />
+          <Route path="students/categories" element={<StudentCategory />} />
 
           {/* Teachers */}
-          <Route path="/teachers"                 element={<TeacherList />} />
-          <Route path="/teachers/add"             element={<AddNewTeacher />} />
-          <Route path="/teachers/edit"            element={<EditTeacher />} />
-          <Route path="/teachers/details"         element={<TeacherDetails />} />
-          <Route path="/teachers/timetable"       element={<TeacherTimetable />} />
+          <Route path="teachers" element={<TeacherList />} />
+          <Route path="teachers/add" element={<AddNewTeacher />} />
+          <Route path="teachers/edit" element={<EditTeacher />} />
+          <Route path="teachers/details" element={<TeacherDetails />} />
+          <Route path="teachers/timetable" element={<TeacherTimetable />} />
 
           {/* Guardians */}
-          <Route path="/guardians"                element={<GuardianList />} />
-          <Route path="/guardians/add"            element={<AddNewGuardian />} />
-          <Route path="/guardians/edit"           element={<EditGuardian />} />
-          <Route path="/guardians/details"        element={<GuardianDetails />} />
+          <Route path="guardians" element={<GuardianList />} />
+          <Route path="guardians/add" element={<AddNewGuardian />} />
+          <Route path="guardians/edit" element={<EditGuardian />} />
+          <Route path="guardians/details" element={<GuardianDetails />} />
 
           {/* Classes */}
-          <Route path="/classes"                  element={<Placeholder title="Class List" />} />
-          <Route path="/classes/section"          element={<Placeholder title="Section" />} />
-          <Route path="/classes/subjects"         element={<Placeholder title="Subjects" />} />
-          <Route path="/classes/rooms"            element={<Placeholder title="Class Room" />} />
+          <Route path="classes" element={<ClassList />} />
+          <Route path="classes/section" element={<SectionList />} />
+          <Route path="classes/subjects" element={<SubjectList />} />
+          <Route path="classes/rooms" element={<ClassRoomList />} />
 
           {/* Examinations */}
-          <Route path="/exams"                    element={<Placeholder title="Exams" />} />
-          <Route path="/exams/schedule"           element={<Placeholder title="Exam Schedule" />} />
-          <Route path="/exams/results"            element={<Placeholder title="Exam Results" />} />
+          <Route path="exams" element={<ExamList />} />
+          <Route path="exams/schedule" element={<ExamSchedule />} />
+          <Route path="exams/results" element={<ExamResult />} />
 
           {/* Fees */}
-          <Route path="/fees"                     element={<Placeholder title="Fees Collect" />} />
-          <Route path="/fees/type"                element={<Placeholder title="Fees Type" />} />
-          <Route path="/fees/group"               element={<Placeholder title="Fees Group" />} />
-          <Route path="/fees/discount"            element={<Placeholder title="Fees Discount" />} />
+          <Route path="fees" element={<FeesCollect />} />
+          <Route path="fees/type" element={<FeesType />} />
+          <Route path="fees/group" element={<FeesGroup />} />
+          <Route path="fees/discount" element={<FeesDiscount />} />
 
           {/* Attendance */}
-          <Route path="/attendance/student"       element={<Placeholder title="Student Attendance" />} />
-          <Route path="/attendance/teacher"       element={<Placeholder title="Teacher Attendance" />} />
-          <Route path="/attendance/employee"      element={<Placeholder title="Employee Attendance" />} />
+          <Route path="attendance/student" element={<StudentAttendance />} />
+          <Route path="attendance/teacher" element={<TeacherAttendance />} />
+          <Route path="attendance/employee" element={<EmployeeAttendance />} />
 
           {/* Leaves */}
-          <Route path="/leaves/types"             element={<Placeholder title="Leave Types" />} />
-          <Route path="/leaves/requests"          element={<Placeholder title="Leave Requests" />} />
+          <Route path="leaves/types" element={<LeaveTypes />} />
+          <Route path="leaves/requests" element={<LeaveRequest />} />
 
           {/* Library */}
-          <Route path="/library/books"            element={<Placeholder title="Books List" />} />
-          <Route path="/library/members"          element={<Placeholder title="Members List" />} />
-          <Route path="/library/details"          element={<Placeholder title="Members Details" />} />
-          <Route path="/library/issues"           element={<Placeholder title="Issue Return" />} />
+          <Route path="library/books" element={<BooksList />} />
+          <Route path="library/members" element={<MembersList />} />
+          <Route path="library/details" element={<MemberDetails />} />
+          <Route path="library/issues" element={<IssueReturn />} />
 
           {/* Accounts */}
-          <Route path="/accounts/income-head"     element={<Placeholder title="Income Head" />} />
-          <Route path="/accounts/income"          element={<Placeholder title="Income List" />} />
-          <Route path="/accounts/expense-head"    element={<Placeholder title="Expense Head" />} />
-          <Route path="/accounts/expense"         element={<Placeholder title="Expense List" />} />
-          <Route path="/accounts/transaction"     element={<Placeholder title="Transaction" />} />
+          <Route path="accounts/income-head" element={<IncomeHeadList />} />
+          <Route path="accounts/income" element={<IncomeList />} />
+          <Route path="accounts/expense-head" element={<ExpenseHeadList />} />
+          <Route path="accounts/expense" element={<ExpenseList />} />
+          <Route path="accounts/transaction" element={<Transaction />} />
 
           {/* HRM */}
-          <Route path="/hrm/employees"            element={<Placeholder title="Employee List" />} />
-          <Route path="/hrm/details"              element={<Placeholder title="Employee Details" />} />
-          <Route path="/hrm/add"                  element={<Placeholder title="Add New Employee" />} />
-          <Route path="/hrm/payroll"              element={<Placeholder title="Payroll" />} />
-          <Route path="/hrm/designation"          element={<Placeholder title="Designation" />} />
-          <Route path="/hrm/department"           element={<Placeholder title="Department" />} />
-
-          {/* Auth */}
-          <Route path="/auth/login"               element={<Placeholder title="Login" />} />
-          <Route path="/auth/register"            element={<Placeholder title="Register" />} />
+          <Route path="hrm/employees" element={<EmployeeList />} />
+          <Route path="hrm/details" element={<EmployeeDetails />} />
+          <Route path="hrm/add" element={<AddNewEmployee />} />
+          <Route path="hrm/payroll" element={<Payroll />} />
+          <Route path="hrm/designation" element={<Designation />} />
+          <Route path="hrm/department" element={<Department />} />
 
           {/* Settings */}
-          <Route path="/settings"                 element={<Placeholder title="General Settings" />} />
-          <Route path="/settings/notification"    element={<Placeholder title="Notification Settings" />} />
-          <Route path="/settings/currencies"      element={<Placeholder title="Currencies" />} />
-          <Route path="/settings/languages"       element={<Placeholder title="Languages" />} />
+          <Route path="settings" element={<GeneralSettings />} />
+          <Route path="settings/notification" element={<NotificationSettings />} />
+          <Route path="settings/currencies" element={<Currencies />} />
+          <Route path="settings/languages" element={<Languages />} />
 
           {/* Single pages */}
-          <Route path="/certificate"              element={<Placeholder title="Certificate" />} />
-          <Route path="/notice-board"             element={<Placeholder title="Notice Board" />} />
-          <Route path="/events"                   element={<Placeholder title="Events" />} />
-          <Route path="/messages"                 element={<Placeholder title="Messages" />} />
-          <Route path="/subscription"             element={<Placeholder title="Subscription Plan" />} />
-          <Route path="/roles"                    element={<Placeholder title="Role & Access" />} />
-          <Route path="/assign-role"              element={<Placeholder title="Assign Role" />} />
-          <Route path="/profile"                  element={<Placeholder title="My Profile" />} />
-          <Route path="/lms"                      element={<Placeholder title="LMS" />} />
+          <Route path="certificate" element={<Certificate />} />
+          <Route path="notice-board" element={<NoticeBoard />} />
+          <Route path="events" element={<Event />} />
+          <Route path="messages" element={<Message />} />
+          <Route path="subscription" element={<SubscriptionPlan />} />
+          <Route path="roles" element={<RoleAccess />} />
+          <Route path="assign-role" element={<AssignRole />} />
+          <Route path="profile" element={<StudentDetails />} />
 
           {/* 404 fallback */}
-          <Route path="*"                         element={<Placeholder title="404 – Page Not Found" />} />
-        </Routes>
-      </Layout>
+          <Route path="*" element={<Placeholder title="404 – Page Not Found" />} />
+        </Route>
+      </Routes>
     </Router>
   );
 };

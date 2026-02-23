@@ -63,33 +63,51 @@ const Navbar = () => {
     }
   ];
 
-  // Load theme from localStorage on mount
+  // Load saved theme on mount
   useEffect(() => {
     const savedTheme = localStorage.getItem('theme');
     if (savedTheme === 'dark') {
       setIsDarkMode(true);
-      document.documentElement.classList.add('dark');
+      applyDarkMode(true);
+    } else {
+      setIsDarkMode(false);
+      applyDarkMode(false);
     }
   }, []);
+
+  const applyDarkMode = (dark) => {
+    const html = document.documentElement;
+    const body = document.body;
+
+    if (dark) {
+      html.classList.add('dark');
+      html.setAttribute('data-theme', 'dark');
+      html.setAttribute('data-bs-theme', 'dark');
+      body.setAttribute('data-theme', 'dark');
+      body.classList.add('dark');
+      body.classList.remove('light');
+    } else {
+      html.classList.remove('dark');
+      html.setAttribute('data-theme', 'light');
+      html.setAttribute('data-bs-theme', 'light');
+      body.setAttribute('data-theme', 'light');
+      body.classList.add('light');
+      body.classList.remove('dark');
+    }
+  };
+
+  const toggleTheme = () => {
+    const newDarkMode = !isDarkMode;
+    setIsDarkMode(newDarkMode);
+    applyDarkMode(newDarkMode);
+    localStorage.setItem('theme', newDarkMode ? 'dark' : 'light');
+  };
 
   const toggleMobileSidebar = () => {
     const sidebar = document.querySelector('.sidebar');
     const overlay = document.querySelector('.overlay');
     sidebar?.classList.toggle('active');
     overlay?.classList.toggle('active');
-  };
-
-  const toggleTheme = () => {
-    const newDarkMode = !isDarkMode;
-    setIsDarkMode(newDarkMode);
-    
-    if (newDarkMode) {
-      document.documentElement.classList.add('dark');
-      localStorage.setItem('theme', 'dark');
-    } else {
-      document.documentElement.classList.remove('dark');
-      localStorage.setItem('theme', 'light');
-    }
   };
 
   const handleLanguageChange = (languageId) => {
@@ -101,10 +119,11 @@ const Navbar = () => {
   return (
     <div className="navbar-header shadow-1">
       <div className="row align-items-center justify-content-between">
-        
+
         {/* Left Side - Mobile Toggle & Search */}
         <div className="col-auto">
           <div className="d-flex flex-wrap align-items-center gap-4">
+
             {/* Mobile Sidebar Toggle */}
             <button
               type="button"
@@ -112,10 +131,7 @@ const Navbar = () => {
               aria-label="Sidebar Mobile Toggler Button"
               onClick={toggleMobileSidebar}
             >
-              <iconify-icon
-                icon="heroicons:bars-3-solid"
-                className="icon"
-              ></iconify-icon>
+              <iconify-icon icon="heroicons:bars-3-solid" className="icon"></iconify-icon>
             </button>
 
             {/* Search Bar */}
@@ -126,18 +142,16 @@ const Navbar = () => {
                 name="search"
                 placeholder="Search"
               />
-              <iconify-icon
-                icon="ion:search-outline"
-                className="icon"
-              ></iconify-icon>
+              <iconify-icon icon="ion:search-outline" className="icon"></iconify-icon>
             </form>
+
           </div>
         </div>
 
-        {/* Right Side - Theme, Language, Notifications */}
+        {/* Right Side */}
         <div className="col-auto">
           <div className="d-flex flex-wrap align-items-center gap-3">
-            
+
             {/* Theme Toggle Button */}
             <button
               type="button"
@@ -145,14 +159,11 @@ const Navbar = () => {
               aria-label="Dark & Light Mode Button"
               onClick={toggleTheme}
             >
-              <iconify-icon 
-                icon="solar:sun-bold-duotone" 
-                className={`icon text-xl ${isDarkMode ? 'd-none' : ''}`}
-              ></iconify-icon>
-              <iconify-icon 
-                icon="solar:moon-bold-duotone" 
-                className={`icon text-xl ${isDarkMode ? '' : 'd-none'}`}
-              ></iconify-icon>
+              {isDarkMode ? (
+                <iconify-icon icon="solar:sun-bold-duotone" className="icon text-xl"></iconify-icon>
+              ) : (
+                <iconify-icon icon="solar:moon-bold-duotone" className="icon text-xl"></iconify-icon>
+              )}
             </button>
 
             {/* Language Dropdown */}
@@ -171,13 +182,10 @@ const Navbar = () => {
               </button>
               <div className="dropdown-menu to-top dropdown-menu-sm">
                 <div className="py-12 px-16 radius-8 bg-primary-50 mb-16 d-flex align-items-center justify-content-between gap-2">
-                  <div>
-                    <h6 className="text-lg text-primary-light fw-semibold mb-0">
-                      Choose Your Language
-                    </h6>
-                  </div>
+                  <h6 className="text-lg text-primary-light fw-semibold mb-0">
+                    Choose Your Language
+                  </h6>
                 </div>
-
                 <div className="max-h-400-px overflow-y-auto scroll-sm pe-8">
                   {languages.map((language) => (
                     <div
@@ -210,7 +218,7 @@ const Navbar = () => {
                 </div>
               </div>
             </div>
-            {/* Language dropdown end */}
+            {/* Language Dropdown End */}
 
             {/* Notification Dropdown */}
             <div className="dropdown">
@@ -220,19 +228,12 @@ const Navbar = () => {
                 data-bs-toggle="dropdown"
                 aria-label="Notification Button"
               >
-                <iconify-icon
-                  icon="iconoir:bell"
-                  className="text-primary-light text-xl"
-                ></iconify-icon>
+                <iconify-icon icon="iconoir:bell" className="text-primary-light text-xl"></iconify-icon>
                 <span className="w-8-px h-8-px bg-danger-600 position-absolute end-0 top-0 rounded-circle mt-2 me-2"></span>
               </button>
               <div className="dropdown-menu to-top dropdown-menu-lg p-0">
                 <div className="m-16 py-12 px-16 radius-8 bg-primary-50 mb-16 d-flex align-items-center justify-content-between gap-2">
-                  <div>
-                    <h6 className="text-lg text-primary-light fw-semibold mb-0">
-                      Notifications
-                    </h6>
-                  </div>
+                  <h6 className="text-lg text-primary-light fw-semibold mb-0">Notifications</h6>
                   <span className="text-primary-600 fw-semibold text-lg w-40-px h-40-px rounded-circle bg-base d-flex justify-content-center align-items-center">
                     {notifications.length.toString().padStart(2, '0')}
                   </span>
@@ -240,18 +241,15 @@ const Navbar = () => {
 
                 <div className="max-h-400-px overflow-y-auto scroll-sm pe-4">
                   {notifications.map((notification) => (
-                    <a
+                    <div
                       key={notification.id}
-                      href="javascript:void(0)"
                       className={`px-24 py-12 d-flex align-items-start gap-3 mb-2 justify-content-between ${notification.bgClass || ''}`}
+                      style={{ cursor: 'pointer' }}
                     >
                       <div className="text-black hover-bg-transparent hover-text-primary d-flex align-items-center gap-3">
                         {notification.type === 'success' && (
                           <span className="w-44-px h-44-px bg-success-subtle text-success-main rounded-circle d-flex justify-content-center align-items-center flex-shrink-0">
-                            <iconify-icon
-                              icon={notification.icon}
-                              className="icon text-xxl"
-                            ></iconify-icon>
+                            <iconify-icon icon={notification.icon} className="icon text-xxl"></iconify-icon>
                           </span>
                         )}
                         {notification.type === 'profile' && (
@@ -265,32 +263,27 @@ const Navbar = () => {
                           </span>
                         )}
                         <div>
-                          <h6 className="text-md fw-semibold mb-4">
-                            {notification.title}
-                          </h6>
-                          <p className="mb-0 text-sm text-secondary-light text-w-200-px">
-                            {notification.message}
-                          </p>
+                          <h6 className="text-md fw-semibold mb-4">{notification.title}</h6>
+                          <p className="mb-0 text-sm text-secondary-light text-w-200-px">{notification.message}</p>
                         </div>
                       </div>
-                      <span className="text-sm text-secondary-light flex-shrink-0">
-                        {notification.time}
-                      </span>
-                    </a>
+                      <span className="text-sm text-secondary-light flex-shrink-0">{notification.time}</span>
+                    </div>
                   ))}
                 </div>
 
                 <div className="text-center py-12 px-16">
-                  <a
-                    href="javascript:void(0)"
-                    className="text-primary-600 fw-semibold text-md hover-underline"
+                  <button
+                    type="button"
+                    className="text-primary-600 fw-semibold text-md hover-underline border-0 bg-transparent p-0"
                   >
                     See All Notification
-                  </a>
+                  </button>
                 </div>
               </div>
             </div>
-            {/* Notification dropdown end */}
+            {/* Notification Dropdown End */}
+
           </div>
         </div>
       </div>
