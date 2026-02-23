@@ -8,25 +8,25 @@ import Footer from './components/Footer';
 import Dashboard from './pages/Dashboard';
 
 // Students
-import AddStudent from './pages/Students/Addstudent';
-import StudentList from './pages/Students/StudentList';
-import SuspendedStudent from './pages/Students/SuspendedStudent';
-import StudentCategory from './pages/Students/StudentCategories';
-import EditStudent from './pages/Students/EditStudent';
-import StudentDetails from './pages/Students/StudentDetails';
+import AddStudent from './pages/students/Addstudent';
+import StudentList from './pages/students/StudentList';
+import SuspendedStudent from './pages/students/SuspendedStudent';
+import StudentCategory from './pages/students/StudentCategories';
+import EditStudent from './pages/students/EditStudent';
+import StudentDetails from './pages/students/StudentDetails';
 
 // Teachers
-import AddNewTeacher from './pages/Teachers/AddNewTeacher';
-import TeacherList from './pages/Teachers/TeacherList';
-import EditTeacher from './pages/Teachers/EditTeacher';
-import TeacherTimetable from './pages/Teachers/TeacherTimetable';
-import TeacherDetails from './pages/Teachers/TeacherDetails';
+import AddNewTeacher from './pages/teachers/AddNewTeacher';
+import TeacherList from './pages/teachers/TeacherList';
+import EditTeacher from './pages/teachers/EditTeacher';
+import TeacherTimetable from './pages/teachers/TeacherTimetable';
+import TeacherDetails from './pages/teachers/TeacherDetails';
 
 // Guardians
-import AddNewGuardian from './pages/Guardian/AddNewGuardian';
-import GuardianList from './pages/Guardian/GuardianList';
-import EditGuardian from './pages/Guardian/EditGuardian';
-import GuardianDetails from './pages/Guardian/GuardianDetails';
+import AddNewGuardian from './pages/guardian/AddNewGuardian';
+import GuardianList from './pages/guardian/GuardianList';
+import EditGuardian from './pages/guardian/EditGuardian';
+import GuardianDetails from './pages/guardian/GuardianDetails';
 
 // classes
 import SectionList from './pages/classes/SectionList';
