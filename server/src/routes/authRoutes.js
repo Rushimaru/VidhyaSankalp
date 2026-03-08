@@ -1,9 +1,8 @@
- // src/routes/authRoutes.js
 const express = require('express');
+const { loginUser, registerUser } = require('../controllers/authController');
 const router = express.Router();
 
-router.get('/', (req, res) => {
-  res.json({ message: 'auth route working' });
-});
+router.post('/login', loginUser);
+router.post('/register', registerUser);
 
-module.exports = router; // ← this line is critical, don't forget it
+module.exports = router;

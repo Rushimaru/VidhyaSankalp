@@ -1,5 +1,9 @@
 import React, { useState } from 'react';
-import { BrowserRouter as Router, Routes, Route, Outlet } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate, Outlet } from 'react-router-dom';
+import { AuthProvider, useAuth } from './context/AuthContext';
+import ProtectedRoute from './components/ProtectedRoute';
+
+// Layout components (Sidebar, Navbar, Footer)
 import Sidebar from './components/Sidebar';
 import Navbar from './components/Navbar';
 import Footer from './components/Footer';
@@ -104,7 +108,6 @@ import NotificationSettings from './pages/settings/NotificationSettings';
 import Currencies from './pages/settings/Currencies';
 import Languages from './pages/settings/Languages';
 
-// ─── Placeholder pages (replace with real components later) ──────────────────
 const Placeholder = ({ title }) => (
   <div className="dashboard-main-body">
     <div className="d-flex align-items-center justify-content-center" style={{ minHeight: '400px' }}>
@@ -117,10 +120,8 @@ const Placeholder = ({ title }) => (
   </div>
 );
 
-// ─── Layout wrapper (Sidebar + Navbar + content area + Footer) ───────────────
 const Layout = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
-
   return (
     <div className="app-wrapper">
       <Sidebar />
@@ -133,108 +134,136 @@ const Layout = () => {
   );
 };
 
-// ─── App with Router ─────────────────────────────────────────────────────────
+// Public route – if user is already logged in, redirect to dashboard
+const PublicRoute = ({ children }) => {
+  const { user } = useAuth();
+  return user ? <Navigate to="/" replace /> : children;
+};
+
 const App = () => {
   return (
     <Router>
-      <Routes>
-        {/* Public routes without layout */}
-        <Route path="/auth/login" element={<Login />} />
-        <Route path="/auth/register" element={<Register />} />
+      <AuthProvider>
+        <Routes>
+          {/* Public routes (no layout, no protection) */}
+          <Route
+            path="/auth/login"
+            element={
+              <PublicRoute>
+                <Login />
+              </PublicRoute>
+            }
+          />
+          <Route
+            path="/auth/register"
+            element={
+              <PublicRoute>
+                <Register />
+              </PublicRoute>
+            }
+          />
 
-        {/* Protected routes with layout */}
-        <Route path="/" element={<Layout />}>
-          {/* Dashboard */}
-          <Route index element={<Dashboard />} />
+          {/* All protected routes are inside Layout and ProtectedRoute */}
+          <Route
+            path="/"
+            element={
+              <ProtectedRoute>
+                <Layout />
+              </ProtectedRoute>
+            }
+          >
+            <Route index element={<Dashboard />} />
 
-          {/* Students */}
-          <Route path="students" element={<StudentList />} />
-          <Route path="students/add" element={<AddStudent />} />
-          <Route path="students/edit" element={<EditStudent />} />
-          <Route path="students/details" element={<StudentDetails />} />
-          <Route path="students/suspend" element={<SuspendedStudent />} />
-          <Route path="students/categories" element={<StudentCategory />} />
+            {/* Students */}
+            <Route path="students" element={<StudentList />} />
+            <Route path="students/add" element={<AddStudent />} />
+            <Route path="students/edit" element={<EditStudent />} />
+            <Route path="students/details" element={<StudentDetails />} />
+            <Route path="students/suspend" element={<SuspendedStudent />} />
+            <Route path="students/categories" element={<StudentCategory />} />
 
-          {/* Teachers */}
-          <Route path="teachers" element={<TeacherList />} />
-          <Route path="teachers/add" element={<AddNewTeacher />} />
-          <Route path="teachers/edit" element={<EditTeacher />} />
-          <Route path="teachers/details" element={<TeacherDetails />} />
-          <Route path="teachers/timetable" element={<TeacherTimetable />} />
+            {/* Teachers */}
+            <Route path="teachers" element={<TeacherList />} />
+            <Route path="teachers/add" element={<AddNewTeacher />} />
+            <Route path="teachers/edit" element={<EditTeacher />} />
+            <Route path="teachers/details" element={<TeacherDetails />} />
+            <Route path="teachers/timetable" element={<TeacherTimetable />} />
 
-          {/* Guardians */}
-          <Route path="guardians" element={<GuardianList />} />
-          <Route path="guardians/add" element={<AddNewGuardian />} />
-          <Route path="guardians/edit" element={<EditGuardian />} />
-          <Route path="guardians/details" element={<GuardianDetails />} />
+            {/* Guardians */}
+            <Route path="guardians" element={<GuardianList />} />
+            <Route path="guardians/add" element={<AddNewGuardian />} />
+            <Route path="guardians/edit" element={<EditGuardian />} />
+            <Route path="guardians/details" element={<GuardianDetails />} />
 
-          {/* Classes */}
-          <Route path="classes" element={<ClassList />} />
-          <Route path="classes/section" element={<SectionList />} />
-          <Route path="classes/subjects" element={<SubjectList />} />
-          <Route path="classes/rooms" element={<ClassRoomList />} />
+            {/* Classes */}
+            <Route path="classes" element={<ClassList />} />
+            <Route path="classes/section" element={<SectionList />} />
+            <Route path="classes/subjects" element={<SubjectList />} />
+            <Route path="classes/rooms" element={<ClassRoomList />} />
 
-          {/* Examinations */}
-          <Route path="exams" element={<ExamList />} />
-          <Route path="exams/schedule" element={<ExamSchedule />} />
-          <Route path="exams/results" element={<ExamResult />} />
+            {/* Examinations */}
+            <Route path="exams" element={<ExamList />} />
+            <Route path="exams/schedule" element={<ExamSchedule />} />
+            <Route path="exams/results" element={<ExamResult />} />
 
-          {/* Fees */}
-          <Route path="fees" element={<FeesCollect />} />
-          <Route path="fees/type" element={<FeesType />} />
-          <Route path="fees/group" element={<FeesGroup />} />
-          <Route path="fees/discount" element={<FeesDiscount />} />
+            {/* Fees */}
+            <Route path="fees" element={<FeesCollect />} />
+            <Route path="fees/type" element={<FeesType />} />
+            <Route path="fees/group" element={<FeesGroup />} />
+            <Route path="fees/discount" element={<FeesDiscount />} />
 
-          {/* Attendance */}
-          <Route path="attendance/student" element={<StudentAttendance />} />
-          <Route path="attendance/teacher" element={<TeacherAttendance />} />
-          <Route path="attendance/employee" element={<EmployeeAttendance />} />
+            {/* Attendance */}
+            <Route path="attendance/student" element={<StudentAttendance />} />
+            <Route path="attendance/teacher" element={<TeacherAttendance />} />
+            <Route path="attendance/employee" element={<EmployeeAttendance />} />
 
-          {/* Leaves */}
-          <Route path="leaves/types" element={<LeaveTypes />} />
-          <Route path="leaves/requests" element={<LeaveRequest />} />
+            {/* Leaves */}
+            <Route path="leaves/types" element={<LeaveTypes />} />
+            <Route path="leaves/requests" element={<LeaveRequest />} />
 
-          {/* Library */}
-          <Route path="library/books" element={<BooksList />} />
-          <Route path="library/members" element={<MembersList />} />
-          <Route path="library/details" element={<MemberDetails />} />
-          <Route path="library/issues" element={<IssueReturn />} />
+            {/* Library */}
+            <Route path="library/books" element={<BooksList />} />
+            <Route path="library/members" element={<MembersList />} />
+            <Route path="library/details" element={<MemberDetails />} />
+            <Route path="library/issues" element={<IssueReturn />} />
 
-          {/* Accounts */}
-          <Route path="accounts/income-head" element={<IncomeHeadList />} />
-          <Route path="accounts/income" element={<IncomeList />} />
-          <Route path="accounts/expense-head" element={<ExpenseHeadList />} />
-          <Route path="accounts/expense" element={<ExpenseList />} />
-          <Route path="accounts/transaction" element={<Transaction />} />
+            {/* Accounts */}
+            <Route path="accounts/income-head" element={<IncomeHeadList />} />
+            <Route path="accounts/income" element={<IncomeList />} />
+            <Route path="accounts/expense-head" element={<ExpenseHeadList />} />
+            <Route path="accounts/expense" element={<ExpenseList />} />
+            <Route path="accounts/transaction" element={<Transaction />} />
 
-          {/* HRM */}
-          <Route path="hrm/employees" element={<EmployeeList />} />
-          <Route path="hrm/details" element={<EmployeeDetails />} />
-          <Route path="hrm/add" element={<AddNewEmployee />} />
-          <Route path="hrm/payroll" element={<Payroll />} />
-          <Route path="hrm/designation" element={<Designation />} />
-          <Route path="hrm/department" element={<Department />} />
+            {/* HRM */}
+            <Route path="hrm/employees" element={<EmployeeList />} />
+            <Route path="hrm/details" element={<EmployeeDetails />} />
+            <Route path="hrm/add" element={<AddNewEmployee />} />
+            <Route path="hrm/payroll" element={<Payroll />} />
+            <Route path="hrm/designation" element={<Designation />} />
+            <Route path="hrm/department" element={<Department />} />
 
-          {/* Settings */}
-          <Route path="settings" element={<GeneralSettings />} />
-          <Route path="settings/notification" element={<NotificationSettings />} />
-          <Route path="settings/currencies" element={<Currencies />} />
-          <Route path="settings/languages" element={<Languages />} />
+            {/* Settings */}
+            <Route path="settings" element={<GeneralSettings />} />
+            <Route path="settings/notification" element={<NotificationSettings />} />
+            <Route path="settings/currencies" element={<Currencies />} />
+            <Route path="settings/languages" element={<Languages />} />
 
-          {/* Single pages */}
-          <Route path="certificate" element={<Certificate />} />
-          <Route path="notice-board" element={<NoticeBoard />} />
-          <Route path="events" element={<Event />} />
-          <Route path="messages" element={<Message />} />
-          <Route path="subscription" element={<SubscriptionPlan />} />
-          <Route path="roles" element={<RoleAccess />} />
-          <Route path="assign-role" element={<AssignRole />} />
-          <Route path="profile" element={<StudentDetails />} />
+            {/* Single pages */}
+            <Route path="certificate" element={<Certificate />} />
+            <Route path="notice-board" element={<NoticeBoard />} />
+            <Route path="events" element={<Event />} />
+            <Route path="messages" element={<Message />} />
+            <Route path="subscription" element={<SubscriptionPlan />} />
+            <Route path="roles" element={<RoleAccess />} />
+            <Route path="assign-role" element={<Placeholder title="Assign Role" />} />
+            <Route path="profile" element={<Placeholder title="My Profile" />} />
+            <Route path="lms" element={<Placeholder title="LMS" />} />
 
-          {/* 404 fallback */}
-          <Route path="*" element={<Placeholder title="404 – Page Not Found" />} />
-        </Route>
-      </Routes>
+            {/* 404 fallback inside layout */}
+            <Route path="*" element={<Placeholder title="404 – Page Not Found" />} />
+          </Route>
+        </Routes>
+      </AuthProvider>
     </Router>
   );
 };

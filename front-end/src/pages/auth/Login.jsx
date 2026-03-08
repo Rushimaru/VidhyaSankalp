@@ -1,14 +1,19 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { useAuth } from '../../context/AuthContext';
 
 const Login = () => {
   const navigate = useNavigate();
+  const { login } = useAuth();
+
   const [formData, setFormData] = useState({
     email: '',
     password: '',
     remember: false,
   });
   const [showPassword, setShowPassword] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
 
   const handleChange = (e) => {
     const { id, value, type, checked } = e.target;
@@ -16,19 +21,45 @@ const Login = () => {
       ...prev,
       [id]: type === 'checkbox' ? checked : value,
     }));
+    setError('');
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    // Here you would call your authentication API
-    console.log('Login attempt:', formData);
-    alert('Login functionality would be implemented here.');
-    // On success, navigate to dashboard:
-    // navigate('/');
+    setLoading(true);
+    setError('');
+
+    try {
+      const response = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: formData.email,
+          password: formData.password,
+        }),
+      });
+
+      console.log('Status:', response.status);
+      const text = await response.text();   // get raw text
+      console.log('Raw response:', text);
+
+      if (!response.ok) {
+        throw new Error(`Server error: ${response.status}`);
+      }
+
+      const data = JSON.parse(text);        // manually parse
+      login(data.token, data.user);
+      navigate('/');
+    } catch (err) {
+      setError(err.message);
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleRoleClick = (role) => {
-    // Pre‑fill credentials for demo purposes
+    // Optional: pre‑fill demo credentials
     const demoEmails = {
       SuperAdmin: 'superadmin@example.com',
       Admin: 'admin@example.com',
@@ -46,7 +77,7 @@ const Login = () => {
 
   return (
     <div className="d-lg-flex bg-white min-vh-100">
-      {/* Left side image (hidden on small screens) */}
+      {/* Left side image (place images in public folder) */}
       <div className="w-50 d-lg-flex d-none overflow-hidden">
         <img
           src="../src/assets/images/thumbs/login-img.png"
@@ -55,7 +86,6 @@ const Login = () => {
         />
       </div>
 
-      {/* Right side form */}
       <div className="lg-w-50 px-24 py-32 d-flex justify-content-center align-items-center">
         <div className="max-w-540-px mx-auto w-100">
           <Link to="/" className="d-inline-block">
@@ -67,9 +97,14 @@ const Login = () => {
             <p className="text-sm text-secondary-light mb-0">Log in to your account to continue</p>
           </div>
 
+          {error && (
+            <div className="alert alert-danger text-sm py-2 mb-3" role="alert">
+              {error}
+            </div>
+          )}
+
           <form onSubmit={handleSubmit} className="d-flex flex-column gap-32">
             <div className="d-flex flex-column gap-16">
-              {/* Email */}
               <div>
                 <label htmlFor="email" className="text-sm fw-semibold text-primary-light d-inline-block mb-8">
                   Email Address <span className="text-danger-600">*</span>
@@ -82,10 +117,10 @@ const Login = () => {
                   value={formData.email}
                   onChange={handleChange}
                   required
+                  disabled={loading}
                 />
               </div>
 
-              {/* Password with toggle */}
               <div>
                 <label htmlFor="password" className="text-sm fw-semibold text-primary-light d-inline-block mb-8">
                   Password <span className="text-danger-600">*</span>
@@ -99,12 +134,13 @@ const Login = () => {
                     value={formData.password}
                     onChange={handleChange}
                     required
+                    disabled={loading}
                   />
                   <button
                     type="button"
                     className="btn p-0 border-0 bg-transparent position-absolute end-0 top-50 translate-middle-y me-16 text-secondary-light cursor-pointer"
                     onClick={() => setShowPassword(!showPassword)}
-                    aria-label="Toggle password visibility"
+                    disabled={loading}
                   >
                     <i className={`ri-${showPassword ? 'eye-off' : 'eye'}-line`}></i>
                   </button>
@@ -112,7 +148,6 @@ const Login = () => {
               </div>
             </div>
 
-            {/* Remember me & Forgot password */}
             <div className="d-flex justify-content-between gap-2">
               <div className="form-check style-check d-flex align-items-center">
                 <input
@@ -121,6 +156,7 @@ const Login = () => {
                   id="remember"
                   checked={formData.remember}
                   onChange={handleChange}
+                  disabled={loading}
                 />
                 <label className="form-check-label" htmlFor="remember">Remember me</label>
               </div>
@@ -129,17 +165,18 @@ const Login = () => {
               </Link>
             </div>
 
-            {/* Login button */}
             <div>
-              <button type="submit" className="btn btn-primary-600 text-sm btn-sm px-12 py-16 w-100 radius-8">
-                Log In
+              <button
+                type="submit"
+                className="btn btn-primary-600 text-sm btn-sm px-12 py-16 w-100 radius-8"
+                disabled={loading}
+              >
+                {loading ? 'Logging in...' : 'Log In'}
               </button>
             </div>
 
-            {/* OR login as */}
             <div className="text-center text-sm text-secondary-light">or login as</div>
 
-            {/* Role buttons */}
             <div className="d-grid sm-grid-cols-3 grid-cols-2 gap-16">
               {[
                 { role: 'SuperAdmin', bg: 'bg-success', icon: 'sheild-icon.png', label: 'Supper Admin' },
@@ -154,9 +191,10 @@ const Login = () => {
                   type="button"
                   onClick={() => handleRoleClick(item.role)}
                   className={`d-flex align-items-center gap-8 fw-semibold text-sm radius-6 justify-content-center flex-grow-1 ${item.bg} text-white py-10 px-8 border-0`}
+                  disabled={loading}
                 >
                   <span className="d-flex">
-                    <img src={`../src/assets/images/icons/${item.icon}`} alt={item.label} />
+                    <img src={`/assets/images/icons/${item.icon}`} alt={item.label} />
                   </span>
                   <span>{item.label}</span>
                 </button>
@@ -164,10 +202,9 @@ const Login = () => {
             </div>
           </form>
 
-          {/* Register link */}
           <div className="mt-32 text-center text-sm">
             Don't have an account?{' '}
-            <Link to="/register" className="text-primary-600 fw-semibold text-decoration-underline">
+            <Link to="/auth/register" className="text-primary-600 fw-semibold text-decoration-underline">
               Create an account
             </Link>
           </div>
