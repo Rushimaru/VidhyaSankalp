@@ -1,118 +1,131 @@
-import React, { useState } from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate, Outlet } from 'react-router-dom';
-import { AuthProvider, useAuth } from './context/AuthContext';
-import ProtectedRoute from './components/ProtectedRoute';
+import React, { useState } from "react";
+import {
+  BrowserRouter as Router,
+  Routes,
+  Route,
+  Navigate,
+  Outlet,
+} from "react-router-dom";
+import { AuthProvider, useAuth } from "./context/AuthContext";
+import ProtectedRoute from "./components/ProtectedRoute";
 
 // Layout components (Sidebar, Navbar, Footer)
-import Sidebar from './components/Sidebar';
-import Navbar from './components/Navbar';
-import Footer from './components/Footer';
-
-// Dashboard
-import Dashboard from './pages/Dashboard';
-
-// Students
-import AddStudent from './pages/students/Addstudent';
-import StudentList from './pages/students/StudentList';
-import SuspendedStudent from './pages/students/SuspendedStudent';
-import StudentCategory from './pages/students/StudentCategories';
-import EditStudent from './pages/students/EditStudent';
-import StudentDetails from './pages/students/StudentDetails';
-
-// Teachers
-import AddNewTeacher from './pages/teachers/AddNewTeacher';
-import TeacherList from './pages/teachers/TeacherList';
-import EditTeacher from './pages/teachers/EditTeacher';
-import TeacherTimetable from './pages/teachers/TeacherTimetable';
-import TeacherDetails from './pages/teachers/TeacherDetails';
-
-// Guardians
-import AddNewGuardian from './pages/guardian/AddNewGuardian';
-import GuardianList from './pages/guardian/GuardianList';
-import EditGuardian from './pages/guardian/EditGuardian';
-import GuardianDetails from './pages/guardian/GuardianDetails';
-
-// classes
-import SectionList from './pages/classes/SectionList';
-import SubjectList from './pages/classes/SubjectList';
-import ClassList from './pages/classes/ClassList';
-import ClassRoomList from './pages/classes/ClassRoomList';
-
-// examinations
-import ExamList from './pages/examinations/ExamList';
-import ExamSchedule from './pages/examinations/ExamSchedule';
-import ExamResult from './pages/examinations/ExamResult';
-
-// fees
-import FeesCollect from './pages/fees/FeesCollect';
-import FeesType from './pages/fees/FeesType';
-import FeesGroup from './pages/fees/FeesGroup';
-import FeesDiscount from './pages/fees/FeesDiscount';
-
-// attendance
-import StudentAttendance from './pages/attendance/StudentAttendance';
-import TeacherAttendance from './pages/attendance/TeacherAttendance';
-import EmployeeAttendance from './pages/attendance/EmployeeAttendance';
-
-// leave
-import LeaveTypes from './pages/leaves/LeaveTypes';
-import LeaveRequest from './pages/leaves/LeaveRequest';
-
-// certificate
-import Certificate from './pages/certificate/Certificate';
-
-// library
-import BooksList from './pages/library/BooksList';
-import MembersList from './pages/library/MembersList';
-import MemberDetails from './pages/library/MemberDetails';
-import IssueReturn from './pages/library/IssueReturn';
-
-// accounts
-import IncomeHeadList from './pages/accounts/IncomeHeadList';
-import IncomeList from './pages/accounts/IncomeList';
-import ExpenseHeadList from './pages/accounts/ExpenseHeadList';
-import ExpenseList from './pages/accounts/ExpenseList';
-import Transaction from './pages/accounts/Transaction';
-
-// HRM 
-import EmployeeList from './pages/hrm/EmployeeList';
-import EmployeeDetails from './pages/hrm/EmployeeDetails';
-import AddNewEmployee from './pages/hrm/AddNewEmployee';
-import Payroll from './pages/hrm/Payroll';
-import Designation from './pages/hrm/Designation';
-import Department from './pages/hrm/Department';
-
-// notice
-import NoticeBoard from './pages/notice/NoticeBoard';
-
-// events
-import Event from './pages/events/Event';
-
-// messages
-import Message from './pages/message/Message';
-
-// subscription
-import SubscriptionPlan from './pages/subscription/SubscriptionPlan';
-
-// roles
-import RoleAccess from './pages/role/RoleAccess';
-import AssignRole from './pages/role/AssignRole';
+import Sidebar from "./components/Sidebar";
+import Navbar from "./components/Navbar";
+import Footer from "./components/Footer";
 
 // auth
-import Login from './pages/auth/Login';
-import Register from './pages/auth/Register';
+import Login from "./pages/auth/Login";
+import Register from "./pages/auth/Register";
+import VerifyOtp from "./pages/auth/VerifyOtp";
+
+// Dashboard
+import Dashboard from "./pages/Dashboard";
+
+// Students
+import AddStudent from "./pages/students/Addstudent";
+import StudentList from "./pages/students/StudentList";
+import SuspendedStudent from "./pages/students/SuspendedStudent";
+import StudentCategory from "./pages/students/StudentCategories";
+import EditStudent from "./pages/students/EditStudent";
+import StudentDetails from "./pages/students/StudentDetails";
+
+// Teachers
+import AddNewTeacher from "./pages/teachers/AddNewTeacher";
+import TeacherList from "./pages/teachers/TeacherList";
+import EditTeacher from "./pages/teachers/EditTeacher";
+import TeacherTimetable from "./pages/teachers/TeacherTimetable";
+import TeacherDetails from "./pages/teachers/TeacherDetails";
+
+// Guardians
+import AddNewGuardian from "./pages/guardian/AddNewGuardian";
+import GuardianList from "./pages/guardian/GuardianList";
+import EditGuardian from "./pages/guardian/EditGuardian";
+import GuardianDetails from "./pages/guardian/GuardianDetails";
+
+// classes
+import SectionList from "./pages/classes/SectionList";
+import SubjectList from "./pages/classes/SubjectList";
+import ClassList from "./pages/classes/ClassList";
+import ClassRoomList from "./pages/classes/ClassRoomList";
+
+// examinations
+import ExamList from "./pages/examinations/ExamList";
+import ExamSchedule from "./pages/examinations/ExamSchedule";
+import ExamResult from "./pages/examinations/ExamResult";
+
+// fees
+import FeesCollect from "./pages/fees/FeesCollect";
+import FeesType from "./pages/fees/FeesType";
+import FeesGroup from "./pages/fees/FeesGroup";
+import FeesDiscount from "./pages/fees/FeesDiscount";
+
+// attendance
+import StudentAttendance from "./pages/attendance/StudentAttendance";
+import TeacherAttendance from "./pages/attendance/TeacherAttendance";
+import EmployeeAttendance from "./pages/attendance/EmployeeAttendance";
+
+// leave
+import LeaveTypes from "./pages/leaves/LeaveTypes";
+import LeaveRequest from "./pages/leaves/LeaveRequest";
+
+// certificate
+import Certificate from "./pages/certificate/Certificate";
+
+// library
+import BooksList from "./pages/library/BooksList";
+import MembersList from "./pages/library/MembersList";
+import MemberDetails from "./pages/library/MemberDetails";
+import IssueReturn from "./pages/library/IssueReturn";
+
+// accounts
+import IncomeHeadList from "./pages/accounts/IncomeHeadList";
+import IncomeList from "./pages/accounts/IncomeList";
+import ExpenseHeadList from "./pages/accounts/ExpenseHeadList";
+import ExpenseList from "./pages/accounts/ExpenseList";
+import Transaction from "./pages/accounts/Transaction";
+
+// HRM
+import EmployeeList from "./pages/hrm/EmployeeList";
+import EmployeeDetails from "./pages/hrm/EmployeeDetails";
+import AddNewEmployee from "./pages/hrm/AddNewEmployee";
+import Payroll from "./pages/hrm/Payroll";
+import Designation from "./pages/hrm/Designation";
+import Department from "./pages/hrm/Department";
+
+// notice
+import NoticeBoard from "./pages/notice/NoticeBoard";
+
+// events
+import Event from "./pages/events/Event";
+
+// messages
+import Message from "./pages/message/Message";
+
+// subscription
+import SubscriptionPlan from "./pages/subscription/SubscriptionPlan";
+
+// roles
+import RoleAccess from "./pages/role/RoleAccess";
+import AssignRole from "./pages/role/AssignRole";
 
 // settings
-import GeneralSettings from './pages/settings/GeneralSettings';
-import NotificationSettings from './pages/settings/NotificationSettings';
-import Currencies from './pages/settings/Currencies';
-import Languages from './pages/settings/Languages';
+import GeneralSettings from "./pages/settings/GeneralSettings";
+import NotificationSettings from "./pages/settings/NotificationSettings";
+import Currencies from "./pages/settings/Currencies";
+import Languages from "./pages/settings/Languages";
 
 const Placeholder = ({ title }) => (
   <div className="dashboard-main-body">
-    <div className="d-flex align-items-center justify-content-center" style={{ minHeight: '400px' }}>
+    <div
+      className="d-flex align-items-center justify-content-center"
+      style={{ minHeight: "400px" }}
+    >
       <div className="text-center">
-        <iconify-icon icon="solar:document-bold" style={{ fontSize: '64px', color: '#0A51CE', opacity: 0.4 }}></iconify-icon>
+        <iconify-icon
+          icon="solar:document-bold"
+          style={{ fontSize: "64px", color: "#0A51CE", opacity: 0.4 }}
+        ></iconify-icon>
         <h4 className="mt-16 text-primary-light fw-semibold">{title}</h4>
         <p className="text-secondary-light">This page is under construction.</p>
       </div>
@@ -142,10 +155,9 @@ const PublicRoute = ({ children }) => {
 
 const App = () => {
   return (
-    <Router>
-      <AuthProvider>
+    <AuthProvider>
+      <Router>
         <Routes>
-          {/* Public routes (no layout, no protection) */}
           <Route
             path="/auth/login"
             element={
@@ -162,8 +174,14 @@ const App = () => {
               </PublicRoute>
             }
           />
-
-          {/* All protected routes are inside Layout and ProtectedRoute */}
+          <Route
+            path="/auth/verify-otp"
+            element={
+              <PublicRoute>
+                <VerifyOtp />
+              </PublicRoute>
+            }
+          />
           <Route
             path="/"
             element={
@@ -173,7 +191,6 @@ const App = () => {
             }
           >
             <Route index element={<Dashboard />} />
-
             {/* Students */}
             <Route path="students" element={<StudentList />} />
             <Route path="students/add" element={<AddStudent />} />
@@ -215,7 +232,10 @@ const App = () => {
             {/* Attendance */}
             <Route path="attendance/student" element={<StudentAttendance />} />
             <Route path="attendance/teacher" element={<TeacherAttendance />} />
-            <Route path="attendance/employee" element={<EmployeeAttendance />} />
+            <Route
+              path="attendance/employee"
+              element={<EmployeeAttendance />}
+            />
 
             {/* Leaves */}
             <Route path="leaves/types" element={<LeaveTypes />} />
@@ -244,7 +264,10 @@ const App = () => {
 
             {/* Settings */}
             <Route path="settings" element={<GeneralSettings />} />
-            <Route path="settings/notification" element={<NotificationSettings />} />
+            <Route
+              path="settings/notification"
+              element={<NotificationSettings />}
+            />
             <Route path="settings/currencies" element={<Currencies />} />
             <Route path="settings/languages" element={<Languages />} />
 
@@ -255,16 +278,25 @@ const App = () => {
             <Route path="messages" element={<Message />} />
             <Route path="subscription" element={<SubscriptionPlan />} />
             <Route path="roles" element={<RoleAccess />} />
-            <Route path="assign-role" element={<Placeholder title="Assign Role" />} />
-            <Route path="profile" element={<Placeholder title="My Profile" />} />
+            <Route
+              path="assign-role"
+              element={<Placeholder title="Assign Role" />}
+            />
+            <Route
+              path="profile"
+              element={<Placeholder title="My Profile" />}
+            />
             <Route path="lms" element={<Placeholder title="LMS" />} />
 
             {/* 404 fallback inside layout */}
-            <Route path="*" element={<Placeholder title="404 – Page Not Found" />} />
+            <Route
+              path="*"
+              element={<Placeholder title="404 – Page Not Found" />}
+            />
           </Route>
         </Routes>
-      </AuthProvider>
-    </Router>
+      </Router>
+    </AuthProvider>
   );
 };
 

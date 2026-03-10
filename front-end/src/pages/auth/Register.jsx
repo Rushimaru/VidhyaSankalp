@@ -3,18 +3,54 @@ import { Link, useNavigate } from 'react-router-dom';
 
 const Register = () => {
   const navigate = useNavigate();
+
   const [formData, setFormData] = useState({
     fullName: '',
     email: '',
     password: '',
     confirmPassword: '',
-    role: '',
     termsAccepted: false,
   });
 
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-  const [passwordError, setPasswordError] = useState('');
+  const [errors, setErrors] = useState({});
+  const [serverError, setServerError] = useState('');
+  const [loading, setLoading] = useState(false);
+
+  const validate = () => {
+    const newErrors = {};
+
+    if (!formData.fullName.trim()) {
+      newErrors.fullName = 'Full name is required.';
+    } else if (formData.fullName.trim().length < 3) {
+      newErrors.fullName = 'Name must be at least 3 characters.';
+    }
+
+    if (!formData.email.trim()) {
+      newErrors.email = 'Email is required.';
+    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
+      newErrors.email = 'Enter a valid email address.';
+    }
+
+    if (!formData.password) {
+      newErrors.password = 'Password is required.';
+    } else if (formData.password.length < 6) {
+      newErrors.password = 'Password must be at least 6 characters.';
+    }
+
+    if (!formData.confirmPassword) {
+      newErrors.confirmPassword = 'Please confirm your password.';
+    } else if (formData.password !== formData.confirmPassword) {
+      newErrors.confirmPassword = 'Passwords do not match.';
+    }
+
+    if (!formData.termsAccepted) {
+      newErrors.termsAccepted = 'You must accept the Terms & Conditions.';
+    }
+
+    return newErrors;
+  };
 
   const handleChange = (e) => {
     const { id, value, type, checked } = e.target;
@@ -22,43 +58,52 @@ const Register = () => {
       ...prev,
       [id]: type === 'checkbox' ? checked : value,
     }));
-
-    // Clear password error when typing
-    if (id === 'password' || id === 'confirmPassword') {
-      setPasswordError('');
-    }
+    setErrors((prev) => ({ ...prev, [id]: '' }));
+    setServerError('');
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
 
-    // Basic validation
-    if (formData.password !== formData.confirmPassword) {
-      setPasswordError('Passwords do not match');
+    const validationErrors = validate();
+    if (Object.keys(validationErrors).length > 0) {
+      setErrors(validationErrors);
       return;
     }
 
-    if (!formData.termsAccepted) {
-      alert('Please accept the Terms & Conditions');
-      return;
+    setLoading(true);
+    setServerError('');
+
+    try {
+      const response = await fetch('/api/auth/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: formData.fullName,
+          email: formData.email,
+          password: formData.password,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.message || `Server error: ${response.status}`);
+      }
+
+      // ✅ Redirect to OTP page, pass email via state
+      navigate('/auth/verify-otp', { state: { email: formData.email } });
+
+    } catch (err) {
+      setServerError(err.message);
+    } finally {
+      setLoading(false);
     }
-
-    // Here you would call your registration API
-    console.log('Registration data:', formData);
-    alert('Registration successful! (demo)');
-    // Navigate to login or dashboard
-    // navigate('/auth/login');
-  };
-
-  const handleRoleClick = (role) => {
-    // Quick role selection for demo
-    setFormData((prev) => ({ ...prev, role }));
   };
 
   return (
     <div className="d-lg-flex bg-white min-vh-100">
-      {/* Left side image (hidden on small screens) */}
-      <div className="w-50 d-lg-block d-none overflow-hidden d-flex">
+      <div className="w-50 d-lg-flex d-none overflow-hidden">
         <img
           src="../src/assets/images/thumbs/login-img.png"
           alt="Register"
@@ -66,7 +111,6 @@ const Register = () => {
         />
       </div>
 
-      {/* Right side form */}
       <div className="lg-w-50 px-24 py-40 d-flex justify-content-center align-items-center">
         <div className="max-w-540-px mx-auto w-100">
           <Link to="/" className="d-inline-block">
@@ -74,13 +118,18 @@ const Register = () => {
           </Link>
 
           <div className="mt-48 mb-32">
-            <h1 className="h6 fw-bold text-primary-light">Create Your Account 🚀</h1>
-            <p className="text-sm text-secondary-light">
-              Fill in the details to get started
-            </p>
+            <h1 className="h6 fw-bold text-primary-light">Create Your Account</h1>
+            <p className="text-sm text-secondary-light">Fill in the details to get started</p>
           </div>
 
-          <form onSubmit={handleSubmit} className="d-flex flex-column gap-24">
+          {serverError && (
+            <div className="alert alert-danger text-sm py-2 mb-3" role="alert">
+              {serverError}
+            </div>
+          )}
+
+          <form onSubmit={handleSubmit} className="d-flex flex-column gap-20" noValidate>
+
             {/* Full Name */}
             <div>
               <label htmlFor="fullName" className="text-sm fw-semibold text-primary-light mb-8 d-block">
@@ -89,12 +138,13 @@ const Register = () => {
               <input
                 type="text"
                 id="fullName"
-                className="form-control"
+                className={`form-control ${errors.fullName ? 'is-invalid' : ''}`}
                 placeholder="Enter your full name"
                 value={formData.fullName}
                 onChange={handleChange}
-                required
+                disabled={loading}
               />
+              {errors.fullName && <div className="invalid-feedback">{errors.fullName}</div>}
             </div>
 
             {/* Email */}
@@ -105,14 +155,15 @@ const Register = () => {
               <input
                 type="email"
                 id="email"
-                className="form-control"
+                className={`form-control ${errors.email ? 'is-invalid' : ''}`}
                 placeholder="Enter your email"
                 value={formData.email}
                 onChange={handleChange}
-                required
+                disabled={loading}
               />
+              {errors.email && <div className="invalid-feedback">{errors.email}</div>}
             </div>
-
+            
             {/* Password */}
             <div>
               <label htmlFor="password" className="text-sm fw-semibold text-primary-light d-inline-block mb-8">
@@ -122,20 +173,21 @@ const Register = () => {
                 <input
                   type={showPassword ? 'text' : 'password'}
                   id="password"
-                  className="form-control"
+                  className={`form-control ${errors.password ? 'is-invalid' : ''}`}
                   placeholder="Enter your password"
                   value={formData.password}
                   onChange={handleChange}
-                  required
+                  disabled={loading}
                 />
                 <button
                   type="button"
-                  className="btn p-0 border-0 bg-transparent position-absolute end-0 top-50 translate-middle-y me-16 text-secondary-light cursor-pointer"
+                  className="btn p-0 border-0 bg-transparent position-absolute end-0 top-50 translate-middle-y me-16 text-secondary-light"
                   onClick={() => setShowPassword(!showPassword)}
-                  aria-label="Toggle password visibility"
+                  disabled={loading}
                 >
                   <i className={`ri-${showPassword ? 'eye-off' : 'eye'}-line`}></i>
                 </button>
+                {errors.password && <div className="invalid-feedback">{errors.password}</div>}
               </div>
             </div>
 
@@ -148,84 +200,56 @@ const Register = () => {
                 <input
                   type={showConfirmPassword ? 'text' : 'password'}
                   id="confirmPassword"
-                  className="form-control"
+                  className={`form-control ${errors.confirmPassword ? 'is-invalid' : ''}`}
                   placeholder="Confirm your password"
                   value={formData.confirmPassword}
                   onChange={handleChange}
-                  required
+                  disabled={loading}
                 />
                 <button
                   type="button"
-                  className="btn p-0 border-0 bg-transparent position-absolute end-0 top-50 translate-middle-y me-16 text-secondary-light cursor-pointer"
+                  className="btn p-0 border-0 bg-transparent position-absolute end-0 top-50 translate-middle-y me-16 text-secondary-light"
                   onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                  aria-label="Toggle password visibility"
+                  disabled={loading}
                 >
                   <i className={`ri-${showConfirmPassword ? 'eye-off' : 'eye'}-line`}></i>
                 </button>
+                {errors.confirmPassword && <div className="invalid-feedback">{errors.confirmPassword}</div>}
               </div>
-              {passwordError && (
-                <div className="text-danger-600 text-sm mt-2">{passwordError}</div>
-              )}
-            </div>
-
-            {/* Role Select */}
-            <div>
-              <label htmlFor="role" className="text-sm fw-semibold text-primary-light mb-8 d-block">
-                Select Role
-              </label>
-              <select
-                id="role"
-                className="form-select"
-                value={formData.role}
-                onChange={handleChange}
-                required
-              >
-                <option value="">Choose your role</option>
-                <option value="Student">Student</option>
-                <option value="Teacher">Teacher</option>
-                <option value="Guardian">Guardian</option>
-                <option value="Admin">Admin</option>
-              </select>
-            </div>
-
-            {/* Quick role buttons (optional, like login page) */}
-            <div className="d-flex flex-wrap gap-2">
-              {['Student', 'Teacher', 'Guardian', 'Admin'].map((role) => (
-                <button
-                  key={role}
-                  type="button"
-                  onClick={() => handleRoleClick(role)}
-                  className="btn btn-outline-secondary btn-sm"
-                >
-                  {role}
-                </button>
-              ))}
             </div>
 
             {/* Terms */}
-            <div className="form-check style-check d-flex align-items-center">
-              <input
-                className="form-check-input border border-neutral-400"
-                type="checkbox"
-                id="termsAccepted"
-                checked={formData.termsAccepted}
-                onChange={handleChange}
-              />
-              <label className="form-check-label" htmlFor="termsAccepted">
-                I agree to the{' '}
-                <Link to="/terms" className="text-primary-600 text-decoration-underline">
-                  Terms & Conditions
-                </Link>
-              </label>
+            <div>
+              <div className="form-check style-check d-flex align-items-center">
+                <input
+                  className={`form-check-input border border-neutral-400 ${errors.termsAccepted ? 'is-invalid' : ''}`}
+                  type="checkbox"
+                  id="termsAccepted"
+                  checked={formData.termsAccepted}
+                  onChange={handleChange}
+                  disabled={loading}
+                />
+                <label className="form-check-label" htmlFor="termsAccepted">
+                  I agree to the{' '}
+                  <Link to="/terms" className="text-primary-600 text-decoration-underline">
+                    Terms & Conditions
+                  </Link>
+                </label>
+              </div>
+              {errors.termsAccepted && (
+                <div className="text-danger-600 text-sm mt-1">{errors.termsAccepted}</div>
+              )}
             </div>
 
-            {/* Submit */}
-            <button type="submit" className="btn btn-primary-600 w-100 py-16 radius-8 text-sm fw-semibold">
-              Create Account
+            <button
+              type="submit"
+              className="btn btn-primary-600 w-100 py-16 radius-8 text-sm fw-semibold"
+              disabled={loading}
+            >
+              {loading ? 'Creating Account...' : 'Create Account'}
             </button>
           </form>
 
-          {/* Login Link */}
           <div className="mt-24 text-center text-sm">
             Already have an account?{' '}
             <Link to="/auth/login" className="text-primary-600 fw-semibold text-decoration-underline">
