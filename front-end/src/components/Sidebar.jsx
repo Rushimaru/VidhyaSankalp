@@ -8,7 +8,7 @@ const menuItems = [
     icon: 'ri-graduation-cap-line',
     label: 'Students',
     submenu: [
-      { label: 'Add New Student', path: '/students/add' },
+      { label: 'Add Student', path: '/students/add' },
       { label: 'Student List', path: '/students' },
       { label: 'Suspend Student', path: '/students/suspend' },
       { label: 'Student Categories', path: '/students/categories' },
