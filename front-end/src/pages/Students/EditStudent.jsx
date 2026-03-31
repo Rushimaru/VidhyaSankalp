@@ -1,1027 +1,895 @@
-import React, { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { useState, useEffect } from "react";
+import { Link, useParams, useNavigate } from "react-router-dom";
+import { useAuth } from "../../context/AuthContext";
+import { validateStudent } from "../../utils/validators";
+import DatePicker from "react-datepicker";
+import "react-datepicker/dist/react-datepicker.css";
 
+/* Toast */
+const useToast = () => {
+  const [toasts, setToasts] = useState([]);
+  const add = (message, type = "success") => {
+    const id = Date.now();
+    setToasts((p) => [...p, { id, message, type }]);
+    setTimeout(() => setToasts((p) => p.filter((t) => t.id !== id)), 4000);
+  };
+  return {
+    toasts,
+    success: (m) => add(m, "success"),
+    error: (m) => add(m, "error"),
+  };
+};
+
+const Toast = ({ toasts }) => (
+  <div
+    style={{
+      position: "fixed",
+      top: 20,
+      right: 20,
+      zIndex: 9999,
+      display: "flex",
+      flexDirection: "column",
+      gap: 10,
+    }}
+  >
+    {toasts.map((t) => (
+      <div
+        key={t.id}
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: 10,
+          padding: "12px 18px",
+          borderRadius: 10,
+          minWidth: 280,
+          maxWidth: 380,
+          background: t.type === "success" ? "#16a34a" : "#dc2626",
+          color: "#fff",
+          fontWeight: 600,
+          fontSize: 14,
+          boxShadow: "0 4px 20px rgba(0,0,0,0.18)",
+          animation: "slideIn .3s ease",
+        }}
+      >
+        <span style={{ fontSize: 18 }}>
+          {t.type === "success" ? "✅" : "❌"}
+        </span>
+        {t.message}
+      </div>
+    ))}
+    <style>{`@keyframes slideIn{from{opacity:0;transform:translateX(60px)}to{opacity:1;transform:translateX(0)}}`}</style>
+  </div>
+);
+
+/* Reusable UI */
+const Field = ({ label, required, error, children }) => (
+  <div>
+    <label className="text-sm fw-semibold text-primary-light d-inline-block mb-8">
+      {label} {required && <span className="text-danger-600">*</span>}
+    </label>
+    {children}
+    {error && <p className="text-danger-600 text-xs mt-4">{error}</p>}
+  </div>
+);
+
+const SectionTitle = ({ title }) => (
+  <div className="col-12">
+    <p className="fw-semibold text-primary-light mb-0 pb-8 border-bottom">
+      {title}
+    </p>
+  </div>
+);
+
+const Card = ({ title, children }) => (
+  <div className="col-lg-12">
+    <div className="shadow-1 radius-12 bg-base overflow-hidden">
+      <div className="card-header border-bottom bg-base py-16 px-24">
+        <h6 className="text-lg fw-semibold mb-0">{title}</h6>
+      </div>
+      <div className="card-body p-20">{children}</div>
+    </div>
+  </div>
+);
+
+const HalfCard = ({ title, children }) => (
+  <div className="col-xxl-6">
+    <div className="shadow-1 radius-12 bg-base overflow-hidden h-100">
+      <div className="card-header border-bottom bg-base py-16 px-24">
+        <h6 className="text-lg fw-semibold mb-0">{title}</h6>
+      </div>
+      <div className="card-body p-20">{children}</div>
+    </div>
+  </div>
+);
+
+/* Skeleton loader */
+const Skeleton = () => (
+  <div className="col-lg-12">
+    <div className="shadow-1 radius-12 bg-base overflow-hidden p-24">
+      {Array.from({ length: 6 }).map((_, i) => (
+        <div
+          key={i}
+          style={{
+            height: 40,
+            borderRadius: 8,
+            marginBottom: 16,
+            background:
+              "linear-gradient(90deg,#f0f0f0 25%,#e0e0e0 50%,#f0f0f0 75%)",
+            backgroundSize: "200% 100%",
+            animation: "shimmer 1.5s infinite",
+          }}
+        />
+      ))}
+      <style>{`@keyframes shimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}`}</style>
+    </div>
+  </div>
+);
+
+/* Initial / empty form state */
+const INIT = {
+  academicYear: "2025-2026",
+  classSection: "",
+  section: "",
+  rollNumber: "",
+  admissionNo: "",
+  fullName: "",
+  gender: "",
+  dateOfBirth: "",
+  category: "",
+  religion: "",
+  caste: "",
+  motherTongue: "",
+  nationality: "Indian",
+  phoneNumber: "",
+  studentEmail: "",
+  aadharNumber: "",
+  fathersName: "",
+  fathersPhone: "",
+  fathersOccupation: "",
+  mothersName: "",
+  mothersPhone: "",
+  mothersOccupation: "",
+  primaryGuardian: "father",
+  guardianName: "",
+  guardianRelation: "",
+  guardianPhone: "",
+  guardianEmail: "",
+  currentAddress: "",
+  permanentAddress: "",
+  bloodGroup: "",
+  height: "",
+  weight: "",
+  medicalCondition: "",
+  prevSchoolName: "",
+  prevClass: "",
+  prevBoard: "",
+  prevPassYear: "",
+  prevPercentage: "",
+  prevTCNumber: "",
+  busRoute: "",
+  stopName: "",
+  remarks: "",
+  loginEmail: "",
+  password: "",
+};
+
+/* EditStudent */
 const EditStudent = () => {
-  // State for all form fields
-  const [formData, setFormData] = useState({
-    academicYear: 'Jun 2025/2026',
-    class: '',
-    section: '',
-    rollNumber: '',
-    admissionNo: '',
-    fullName: '',
-    category: '',
-    gender: '',
-    dateOfBirth: '',
-    phoneNumber: '',
-    email: '',
-    studentPhoto: null,
-    fathersName: '',
-    fathersPhoneNumber: '',
-    fathersOccupation: '',
-    fathersPhoto: null,
-    mothersName: '',
-    mothersPhoneNumber: '',
-    mothersOccupation: '',
-    mothersPhoto: null,
-    guardian: 'father', // radio: father, mother, others
-    guardianName: '',
-    guardianEmail: '',
-    guardianPhoneNumber: '',
-    guardianOccupation: '',
-    guardianAddress: '',
-    guardianPhoto: null,
-    bloodGroup: '',
-    height: '',
-    weight: '',
-    bankAccountNumber: '',
-    bankName: '',
-    ifscCode: '',
-    nationalId: '',
-    previousSchoolName: '',
-    previousSchoolAddress: '',
-    currentAddress: '',
-    permanentAddress: '',
-    hostel: '',
-    roomNo: '',
-    docName: '',
-    documentFile: null,
-    details: '',
-    loginEmail: '',
-    password: '',
-  });
+  const { id } = useParams();
+  const navigate = useNavigate();
+  const { token } = useAuth();
+  const { toasts, success, error } = useToast();
 
-  // Password visibility toggle
-  const [showPassword, setShowPassword] = useState(false);
+  const [formData, setFormData] = useState(INIT);
+  const [errors, setErrors] = useState({});
+  const [showPwd, setShowPwd] = useState(false);
+  const [fetching, setFetching] = useState(true); // loading student data
+  const [loading, setLoading] = useState(false); // submitting form
 
-  // Handle input changes
-  const handleChange = (e) => {
-    const { id, value, type, files } = e.target;
-    if (type === 'file') {
-      setFormData((prev) => ({ ...prev, [id]: files[0] }));
-    } else if (type === 'radio') {
-      setFormData((prev) => ({ ...prev, guardian: value }));
-    } else {
-      setFormData((prev) => ({ ...prev, [id]: value }));
+  /* Fetch existing student data */
+  useEffect(() => {
+    const fetchStudent = async () => {
+      try {
+        const response = await fetch(`/api/students/${id}`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        const data = await response.json();
+
+        if (!response.ok) throw new Error(data.message || "Student not found.");
+        setFormData({
+          ...INIT,
+          ...data,
+          dateOfBirth: data.dateOfBirth
+            ? new Date(data.dateOfBirth).toISOString().split("T")[0]
+            : "",
+          password: "",
+        });
+      } catch (err) {
+        error(err.message);
+      } finally {
+        setFetching(false);
+      }
+    };
+
+    fetchStudent();
+  }, [id, token]);
+
+  /* ── Helpers ── */
+  const hc = (e) => {
+    const { id: fieldId, value } = e.target;
+    setFormData((p) => ({ ...p, [fieldId]: value }));
+    if (errors[fieldId]) setErrors((p) => ({ ...p, [fieldId]: undefined }));
+  };
+
+  const inp = (fieldId, placeholder, type = "text") => (
+    <input
+      type={type}
+      id={fieldId}
+      placeholder={placeholder}
+      className={`form-control ${errors[fieldId] ? "border-danger-600" : ""}`}
+      value={formData[fieldId]}
+      onChange={hc}
+    />
+  );
+
+  const formatToIndian = (date) => {
+    if (!date) return "";
+    const [year, month, day] = date.split("-");
+    return `${day}-${month}-${year}`;
+  };
+
+  const sel = (fieldId, placeholder, options) => (
+    <select
+      id={fieldId}
+      className={`form-control form-select ${errors[fieldId] ? "border-danger-600" : ""}`}
+      value={formData[fieldId]}
+      onChange={hc}
+    >
+      <option value="" disabled>
+        {placeholder}
+      </option>
+      {options.map((o) => (
+        <option key={o} value={o}>
+          {o}
+        </option>
+      ))}
+    </select>
+  );
+
+  /* ── Submit ── */
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+
+    const dataToValidate = { ...formData };
+    if (!formData.password) {
+      dataToValidate.password = "placeholder";
+    }
+
+    const errs = validateStudent(dataToValidate);
+    if (!formData.password) delete errs.password;
+
+    if (Object.keys(errs).length) {
+      setErrors(errs);
+      error("Please fix the highlighted errors before saving.");
+      setTimeout(() => {
+        document
+          .querySelector(".text-danger-600.text-xs")
+          ?.scrollIntoView({ behavior: "smooth", block: "center" });
+      }, 100);
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const payload = { ...formData };
+      if (!payload.password) delete payload.password;
+
+      const response = await fetch(`/api/students/${id}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(payload),
+      });
+
+      const data = await response.json();
+      if (!response.ok)
+        throw new Error(data.message || "Failed to update student.");
+
+      success(`"${formData.fullName}" updated successfully!`);
+      setTimeout(() => navigate("/students"), 1500);
+    } catch (err) {
+      error(err.message);
+    } finally {
+      setLoading(false);
     }
   };
 
-  // Handle form submit
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    console.log('Form Data:', formData);
-    // Here you would send data to API
-    alert('Student updated successfully!');
-  };
-
-  // Handle reset (cancel)
-  const handleReset = () => {
-    setFormData({
-      academicYear: 'Jun 2025/2026',
-      class: '',
-      section: '',
-      rollNumber: '',
-      admissionNo: '',
-      fullName: '',
-      category: '',
-      gender: '',
-      dateOfBirth: '',
-      phoneNumber: '',
-      email: '',
-      studentPhoto: null,
-      fathersName: '',
-      fathersPhoneNumber: '',
-      fathersOccupation: '',
-      fathersPhoto: null,
-      mothersName: '',
-      mothersPhoneNumber: '',
-      mothersOccupation: '',
-      mothersPhoto: null,
-      guardian: 'father',
-      guardianName: '',
-      guardianEmail: '',
-      guardianPhoneNumber: '',
-      guardianOccupation: '',
-      guardianAddress: '',
-      guardianPhoto: null,
-      bloodGroup: '',
-      height: '',
-      weight: '',
-      bankAccountNumber: '',
-      bankName: '',
-      ifscCode: '',
-      nationalId: '',
-      previousSchoolName: '',
-      previousSchoolAddress: '',
-      currentAddress: '',
-      permanentAddress: '',
-      hostel: '',
-      roomNo: '',
-      docName: '',
-      documentFile: null,
-      details: '',
-      loginEmail: '',
-      password: '',
-    });
-  };
-
+  /* Render */
   return (
     <div className="dashboard-main-body">
+      <Toast toasts={toasts} />
+
       {/* Breadcrumb */}
-      <div className="breadcrumb d-flex flex-wrap align-items-center justify-content-between gap-3 mb-24">
+      <div className="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-24">
         <div>
-          <h1 className="fw-semibold mb-4 h6 text-primary-light">Edit Student</h1>
-          <div>
-            <Link to="/" className="text-secondary-light hover-text-primary hover-underline">
+          <h6 className="fw-semibold mb-4 text-primary-light">Edit Student</h6>
+          <div className="text-sm">
+            <Link to="/" className="text-secondary-light hover-text-primary">
               Dashboard
             </Link>
-            <Link to="/students" className="text-secondary-light hover-text-primary hover-underline">
-              / Student
+            <Link
+              to="/students"
+              className="text-secondary-light hover-text-primary"
+            >
+              {" "}
+              / Students
             </Link>
             <span className="text-secondary-light"> / Edit Student</span>
           </div>
         </div>
-        <Link to="/students/add" className="btn btn-primary-600 d-flex align-items-center gap-6 d-none">
-          <span className="d-flex text-md">
-            <i className="ri-add-large-line"></i>
-          </span>
-          Add Student
-        </Link>
       </div>
 
-      <form onSubmit={handleSubmit} className="mt-24">
+      {/* Loading skeleton */}
+      {fetching ? (
         <div className="row gy-3">
-          {/* Personal Info Card */}
-          <div className="col-lg-12">
-            <div className="shadow-1 radius-12 bg-base h-100 overflow-hidden">
-              <div className="card-header border-bottom bg-base py-16 px-24 d-flex align-items-center justify-content-between">
-                <h6 className="text-lg fw-semibold mb-0">Personal Info</h6>
-              </div>
-              <div className="card-body p-20">
-                <div className="row gy-3">
-                  <div className="col-xxl-3 col-xl-4 col-sm-6">
-                    <div>
-                      <label htmlFor="academicYear" className="text-sm fw-semibold text-primary-light d-inline-block mb-8">
-                        Academic Year <span className="text-danger-600">*</span>
-                      </label>
-                      <select
-                        id="academicYear"
-                        className="form-control form-select"
-                        value={formData.academicYear}
-                        onChange={handleChange}
-                      >
-                        <option value="Jun 2025/2026">Jun 2025/2026</option>
-                        <option value="Jun 2026/2027">Jun 2026/2027</option>
-                        <option value="Jun 2027/2028">Jun 2027/2028</option>
-                        <option value="Jun 2028/2029">Jun 2028/2029</option>
-                      </select>
-                    </div>
-                  </div>
-                  <div className="col-xxl-3 col-xl-4 col-sm-6">
-                    <div>
-                      <label htmlFor="class" className="text-sm fw-semibold text-primary-light d-inline-block mb-8">
-                        Class <span className="text-danger-600">*</span>
-                      </label>
-                      <select
-                        id="class"
-                        className="form-control form-select"
-                        value={formData.class}
-                        onChange={handleChange}
-                      >
-                        <option value="" disabled>Select a class</option>
-                        <option value="Primary">Primary</option>
-                        <option value="High school">High school</option>
-                        <option value="College">College</option>
-                      </select>
-                    </div>
-                  </div>
-                  <div className="col-xxl-3 col-xl-4 col-sm-6">
-                    <div>
-                      <label htmlFor="section" className="text-sm fw-semibold text-primary-light d-inline-block mb-8">
-                        Section <span className="text-danger-600">*</span>
-                      </label>
-                      <select
-                        id="section"
-                        className="form-control form-select"
-                        value={formData.section}
-                        onChange={handleChange}
-                      >
-                        <option value="" disabled>Select section</option>
-                        <option value="Science">Science</option>
-                        <option value="Art">Art</option>
-                        <option value="Commerce">Commerce</option>
-                      </select>
-                    </div>
-                  </div>
-                  <div className="col-xxl-3 col-xl-4 col-sm-6">
-                    <div>
-                      <label htmlFor="rollNumber" className="text-sm fw-semibold text-primary-light d-inline-block mb-8">
-                        Roll Number
-                      </label>
-                      <input
-                        type="text"
-                        className="form-control"
-                        id="rollNumber"
-                        placeholder="Enter your rollNumber"
-                        value={formData.rollNumber}
-                        onChange={handleChange}
-                      />
-                    </div>
-                  </div>
-                  <div className="col-xxl-3 col-xl-4 col-sm-6">
-                    <div>
-                      <label htmlFor="admissionNo" className="text-sm fw-semibold text-primary-light d-inline-block mb-8">
-                        Admission No <span className="text-danger-600">*</span>
-                      </label>
-                      <input
-                        type="text"
-                        className="form-control"
-                        id="admissionNo"
-                        placeholder="Enter admission number"
-                        value={formData.admissionNo}
-                        onChange={handleChange}
-                      />
-                    </div>
-                  </div>
-                  <div className="col-xxl-3 col-xl-4 col-sm-6">
-                    <div>
-                      <label htmlFor="fullName" className="text-sm fw-semibold text-primary-light d-inline-block mb-8">
-                        Full Name <span className="text-danger-600">*</span>
-                      </label>
-                      <input
-                        type="text"
-                        className="form-control"
-                        id="fullName"
-                        placeholder="Enter your Full Name"
-                        value={formData.fullName}
-                        onChange={handleChange}
-                      />
-                    </div>
-                  </div>
-                  <div className="col-xxl-3 col-xl-4 col-sm-6">
-                    <div>
-                      <label htmlFor="category" className="text-sm fw-semibold text-primary-light d-inline-block mb-8">
-                        Category <span className="text-danger-600">*</span>
-                      </label>
-                      <input
-                        type="text"
-                        className="form-control"
-                        id="category"
-                        placeholder="Select a Category"
-                        value={formData.category}
-                        onChange={handleChange}
-                      />
-                    </div>
-                  </div>
-                  <div className="col-xxl-3 col-xl-4 col-sm-6">
-                    <div>
-                      <label htmlFor="gender" className="text-sm fw-semibold text-primary-light d-inline-block mb-8">
-                        Gender
-                      </label>
-                      <select
-                        id="gender"
-                        className="form-control form-select"
-                        value={formData.gender}
-                        onChange={handleChange}
-                      >
-                        <option value="" disabled>Select Gender</option>
-                        <option value="Male">Male</option>
-                        <option value="Female">Female</option>
-                      </select>
-                    </div>
-                  </div>
-                  <div className="col-xxl-3 col-xl-4 col-sm-6">
-                    <div>
-                      <label htmlFor="dateOfBirth" className="text-sm fw-semibold text-primary-light d-inline-block mb-8">
-                        Date Of Birth <span className="text-danger-600">*</span>
-                      </label>
-                      <input
-                        type="date"
-                        className="form-control"
-                        id="dateOfBirth"
-                        value={formData.dateOfBirth}
-                        onChange={handleChange}
-                      />
-                    </div>
-                  </div>
-                  <div className="col-xxl-3 col-xl-4 col-sm-6">
-                    <div>
-                      <label htmlFor="phoneNumber" className="text-sm fw-semibold text-primary-light d-inline-block mb-8">
-                        Phone Number <span className="text-danger-600">*</span>
-                      </label>
-                      <input
-                        type="text"
-                        className="form-control"
-                        id="phoneNumber"
-                        placeholder="Enter your Phone Number"
-                        value={formData.phoneNumber}
-                        onChange={handleChange}
-                      />
-                    </div>
-                  </div>
-                  <div className="col-xxl-3 col-xl-4 col-sm-6">
-                    <div>
-                      <label htmlFor="email" className="text-sm fw-semibold text-primary-light d-inline-block mb-8">
-                        Email <span className="text-danger-600">*</span>
-                      </label>
-                      <input
-                        type="text"
-                        className="form-control"
-                        id="email"
-                        placeholder="Enter your Email"
-                        value={formData.email}
-                        onChange={handleChange}
-                      />
-                    </div>
-                  </div>
-                  <div className="col-xxl-3 col-xl-4 col-sm-6">
-                    <div>
-                      <label className="text-sm fw-semibold text-primary-light d-inline-block mb-8">
-                        Student Photo <span className="text-danger-600">*</span>
-                      </label>
-                      <div className="drop-zone height-44-px p-4 d-flex justify-content-center align-items-center text-center fw-medium text-md cursor-pointer border border-neutral-400 radius-8 border-dashed bg-hover-neutral-200">
-                        <span className="drop-zone__prompt">Drag & drop a file here or click</span>
-                        <input
-                          type="file"
-                          id="studentPhoto"
-                          className="drop-zone__input"
-                          onChange={handleChange}
-                        />
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Parent & Guardian Info */}
-          <div className="col-lg-12">
-            <div className="shadow-1 radius-12 bg-base h-100 overflow-hidden">
-              <div className="card-header border-bottom bg-base py-16 px-24 d-flex align-items-center justify-content-between">
-                <h6 className="text-lg fw-semibold mb-0">Parent & Guardian Info</h6>
-              </div>
-              <div className="card-body p-20">
-                <div className="row gy-3">
-                  {/* Father */}
-                  <div className="col-xxl-3 col-xl-4 col-sm-6">
-                    <div>
-                      <label htmlFor="fathersName" className="text-sm fw-semibold text-primary-light d-inline-block mb-8">
-                        Fathers Name
-                      </label>
-                      <input
-                        type="text"
-                        className="form-control"
-                        id="fathersName"
-                        placeholder="Enter Fathers Name"
-                        value={formData.fathersName}
-                        onChange={handleChange}
-                      />
-                    </div>
-                  </div>
-                  <div className="col-xxl-3 col-xl-4 col-sm-6">
-                    <div>
-                      <label htmlFor="fathersPhoneNumber" className="text-sm fw-semibold text-primary-light d-inline-block mb-8">
-                        Phone Number
-                      </label>
-                      <input
-                        type="tel"
-                        className="form-control"
-                        id="fathersPhoneNumber"
-                        placeholder="Enter Fathers Number"
-                        value={formData.fathersPhoneNumber}
-                        onChange={handleChange}
-                      />
-                    </div>
-                  </div>
-                  <div className="col-xxl-3 col-xl-4 col-sm-6">
-                    <div>
-                      <label htmlFor="fathersOccupation" className="text-sm fw-semibold text-primary-light d-inline-block mb-8">
-                        Father Occupation
-                      </label>
-                      <input
-                        type="text"
-                        className="form-control"
-                        id="fathersOccupation"
-                        placeholder="Enter Father Occupation"
-                        value={formData.fathersOccupation}
-                        onChange={handleChange}
-                      />
-                    </div>
-                  </div>
-                  <div className="col-xxl-3 col-xl-4 col-sm-6">
-                    <div>
-                      <label className="text-sm fw-semibold text-primary-light d-inline-block mb-8">
-                        Fathers Photo <span className="text-danger-600">*</span>
-                      </label>
-                      <div className="drop-zone height-44-px p-4 d-flex justify-content-center align-items-center text-center fw-medium text-md cursor-pointer border border-neutral-400 radius-8 border-dashed bg-hover-neutral-200">
-                        <span className="drop-zone__prompt">Drag & drop a file here or click</span>
-                        <input type="file" id="fathersPhoto" className="drop-zone__input" onChange={handleChange} />
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Mother */}
-                  <div className="col-xxl-3 col-xl-4 col-sm-6">
-                    <div>
-                      <label htmlFor="mothersName" className="text-sm fw-semibold text-primary-light d-inline-block mb-8">
-                        Mothers Name
-                      </label>
-                      <input
-                        type="text"
-                        className="form-control"
-                        id="mothersName"
-                        placeholder="Enter mothers Name"
-                        value={formData.mothersName}
-                        onChange={handleChange}
-                      />
-                    </div>
-                  </div>
-                  <div className="col-xxl-3 col-xl-4 col-sm-6">
-                    <div>
-                      <label htmlFor="mothersPhoneNumber" className="text-sm fw-semibold text-primary-light d-inline-block mb-8">
-                        Phone Number
-                      </label>
-                      <input
-                        type="tel"
-                        className="form-control"
-                        id="mothersPhoneNumber"
-                        placeholder="Enter mothers Number"
-                        value={formData.mothersPhoneNumber}
-                        onChange={handleChange}
-                      />
-                    </div>
-                  </div>
-                  <div className="col-xxl-3 col-xl-4 col-sm-6">
-                    <div>
-                      <label htmlFor="mothersOccupation" className="text-sm fw-semibold text-primary-light d-inline-block mb-8">
-                        Mother Occupation
-                      </label>
-                      <input
-                        type="text"
-                        className="form-control"
-                        id="mothersOccupation"
-                        placeholder="Enter Mother Occupation"
-                        value={formData.mothersOccupation}
-                        onChange={handleChange}
-                      />
-                    </div>
-                  </div>
-                  <div className="col-xxl-3 col-xl-4 col-sm-6">
-                    <div>
-                      <label className="text-sm fw-semibold text-primary-light d-inline-block mb-8">
-                        Mothers Photo <span className="text-danger-600">*</span>
-                      </label>
-                      <div className="drop-zone height-44-px p-4 d-flex justify-content-center align-items-center text-center fw-medium text-md cursor-pointer border border-neutral-400 radius-8 border-dashed bg-hover-neutral-200">
-                        <span className="drop-zone__prompt">Drag & drop a file here or click</span>
-                        <input type="file" id="mothersPhoto" className="drop-zone__input" onChange={handleChange} />
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Guardian Selection */}
-                  <div className="col-12">
-                    <div className="mt-24">
-                      <span className="text-lg fw-bold text-primary-light d-inline-block mb-8">Select a Guardian</span>
-                      <div className="d-flex align-items-center flex-wrap gap-28">
-                        <div className="form-check checked-primary d-flex align-items-center gap-2">
-                          <input
-                            className="form-check-input"
-                            type="radio"
-                            name="guardian"
-                            id="selectFather"
-                            value="father"
-                            checked={formData.guardian === 'father'}
-                            onChange={handleChange}
-                          />
-                          <label className="form-check-label line-height-1 fw-medium text-secondary-light" htmlFor="selectFather">
-                            Father
-                          </label>
-                        </div>
-                        <div className="form-check checked-secondary d-flex align-items-center gap-2">
-                          <input
-                            className="form-check-input"
-                            type="radio"
-                            name="guardian"
-                            id="selectMother"
-                            value="mother"
-                            checked={formData.guardian === 'mother'}
-                            onChange={handleChange}
-                          />
-                          <label className="form-check-label line-height-1 fw-medium text-secondary-light" htmlFor="selectMother">
-                            Mother
-                          </label>
-                        </div>
-                        <div className="form-check checked-success d-flex align-items-center gap-2">
-                          <input
-                            className="form-check-input"
-                            type="radio"
-                            name="guardian"
-                            id="selectOthers"
-                            value="others"
-                            checked={formData.guardian === 'others'}
-                            onChange={handleChange}
-                          />
-                          <label className="form-check-label line-height-1 fw-medium text-secondary-light" htmlFor="selectOthers">
-                            Others
-                          </label>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Guardian Details (only shown if others selected? The original shows always) */}
-                  <div className="col-xxl-3 col-xl-4 col-sm-6">
-                    <div>
-                      <label htmlFor="guardianName" className="text-sm fw-semibold text-primary-light d-inline-block mb-8">
-                        Guardian Name
-                      </label>
-                      <input
-                        type="text"
-                        className="form-control"
-                        id="guardianName"
-                        placeholder="Enter Guardian Name"
-                        value={formData.guardianName}
-                        onChange={handleChange}
-                      />
-                    </div>
-                  </div>
-                  <div className="col-xxl-3 col-xl-4 col-sm-6">
-                    <div>
-                      <label htmlFor="guardianEmail" className="text-sm fw-semibold text-primary-light d-inline-block mb-8">
-                        Guardian Email
-                      </label>
-                      <input
-                        type="email"
-                        className="form-control"
-                        id="guardianEmail"
-                        placeholder="Enter Guardian Email"
-                        value={formData.guardianEmail}
-                        onChange={handleChange}
-                      />
-                    </div>
-                  </div>
-                  <div className="col-xxl-3 col-xl-4 col-sm-6">
-                    <div>
-                      <label htmlFor="guardianPhoneNumber" className="text-sm fw-semibold text-primary-light d-inline-block mb-8">
-                        Phone Number
-                      </label>
-                      <input
-                        type="tel"
-                        className="form-control"
-                        id="guardianPhoneNumber"
-                        placeholder="Enter Guardian Number"
-                        value={formData.guardianPhoneNumber}
-                        onChange={handleChange}
-                      />
-                    </div>
-                  </div>
-                  <div className="col-xxl-3 col-xl-4 col-sm-6">
-                    <div>
-                      <label htmlFor="guardianOccupation" className="text-sm fw-semibold text-primary-light d-inline-block mb-8">
-                        Occupation
-                      </label>
-                      <input
-                        type="text"
-                        className="form-control"
-                        id="guardianOccupation"
-                        placeholder="Enter Occupation"
-                        value={formData.guardianOccupation}
-                        onChange={handleChange}
-                      />
-                    </div>
-                  </div>
-                  <div className="col-xl-9 col-sm-6">
-                    <div>
-                      <label htmlFor="guardianAddress" className="text-sm fw-semibold text-primary-light d-inline-block mb-8">
-                        Guardian Address
-                      </label>
-                      <input
-                        type="text"
-                        className="form-control"
-                        id="guardianAddress"
-                        placeholder="Enter Guardian Address"
-                        value={formData.guardianAddress}
-                        onChange={handleChange}
-                      />
-                    </div>
-                  </div>
-                  <div className="col-xl-3 col-sm-6">
-                    <div>
-                      <label className="text-sm fw-semibold text-primary-light d-inline-block mb-8">
-                        Guardian Photo <span className="text-danger-600">*</span>
-                      </label>
-                      <div className="drop-zone height-44-px p-4 d-flex justify-content-center align-items-center text-center fw-medium text-md cursor-pointer border border-neutral-400 radius-8 border-dashed bg-hover-neutral-200">
-                        <span className="drop-zone__prompt">Drag & drop a file here or click</span>
-                        <input type="file" id="guardianPhoto" className="drop-zone__input" onChange={handleChange} />
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Medical Details */}
-          <div className="col-lg-12">
-            <div className="shadow-1 radius-12 bg-base h-100 overflow-hidden">
-              <div className="card-header border-bottom bg-base py-16 px-24 d-flex align-items-center justify-content-between">
-                <h6 className="text-lg fw-semibold mb-0">Medical Details</h6>
-              </div>
-              <div className="card-body p-20">
-                <div className="row gy-3">
-                  <div className="col-xxl-3 col-xl-4 col-sm-6">
-                    <div>
-                      <label htmlFor="bloodGroup" className="text-sm fw-semibold text-primary-light d-inline-block mb-8">
-                        Blood Group
-                      </label>
-                      <select
-                        id="bloodGroup"
-                        className="form-control form-select"
-                        value={formData.bloodGroup}
-                        onChange={handleChange}
-                      >
-                        <option value="" disabled>Select blood group</option>
-                        <option value="A+">A+</option>
-                        <option value="AB+">AB+</option>
-                        <option value="A-">A-</option>
-                        <option value="AB-">AB-</option>
-                      </select>
-                    </div>
-                  </div>
-                  <div className="col-xxl-3 col-xl-4 col-sm-6">
-                    <div>
-                      <label htmlFor="height" className="text-sm fw-semibold text-primary-light d-inline-block mb-8">
-                        Height
-                      </label>
-                      <input
-                        type="text"
-                        className="form-control"
-                        id="height"
-                        placeholder="Enter height"
-                        value={formData.height}
-                        onChange={handleChange}
-                      />
-                    </div>
-                  </div>
-                  <div className="col-xxl-3 col-xl-4 col-sm-6">
-                    <div>
-                      <label htmlFor="weight" className="text-sm fw-semibold text-primary-light d-inline-block mb-8">
-                        Weight
-                      </label>
-                      <input
-                        type="text"
-                        className="form-control"
-                        id="weight"
-                        placeholder="Enter Weight"
-                        value={formData.weight}
-                        onChange={handleChange}
-                      />
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Bank Details */}
-          <div className="col-lg-12">
-            <div className="shadow-1 radius-12 bg-base h-100 overflow-hidden">
-              <div className="card-header border-bottom bg-base py-16 px-24 d-flex align-items-center justify-content-between">
-                <h6 className="text-lg fw-semibold mb-0">Bank Details</h6>
-              </div>
-              <div className="card-body p-20">
-                <div className="row gy-3">
-                  <div className="col-xxl-3 col-xl-4 col-sm-6">
-                    <div>
-                      <label htmlFor="bankAccountNumber" className="text-sm fw-semibold text-primary-light d-inline-block mb-8">
-                        Bank Account Number
-                      </label>
-                      <input
-                        type="text"
-                        className="form-control"
-                        id="bankAccountNumber"
-                        placeholder="Enter bank account number"
-                        value={formData.bankAccountNumber}
-                        onChange={handleChange}
-                      />
-                    </div>
-                  </div>
-                  <div className="col-xxl-3 col-xl-4 col-sm-6">
-                    <div>
-                      <label htmlFor="bankName" className="text-sm fw-semibold text-primary-light d-inline-block mb-8">
-                        Bank Name
-                      </label>
-                      <input
-                        type="text"
-                        className="form-control"
-                        id="bankName"
-                        placeholder="Enter bank name"
-                        value={formData.bankName}
-                        onChange={handleChange}
-                      />
-                    </div>
-                  </div>
-                  <div className="col-xxl-3 col-xl-4 col-sm-6">
-                    <div>
-                      <label htmlFor="ifscCode" className="text-sm fw-semibold text-primary-light d-inline-block mb-8">
-                        IFSC Code
-                      </label>
-                      <input
-                        type="text"
-                        className="form-control"
-                        id="ifscCode"
-                        placeholder="Enter IFSC Code"
-                        value={formData.ifscCode}
-                        onChange={handleChange}
-                      />
-                    </div>
-                  </div>
-                  <div className="col-xxl-3 col-xl-4 col-sm-6">
-                    <div>
-                      <label htmlFor="nationalId" className="text-sm fw-semibold text-primary-light d-inline-block mb-8">
-                        National Identification Number
-                      </label>
-                      <input
-                        type="text"
-                        className="form-control"
-                        id="nationalId"
-                        placeholder="Enter national identification number"
-                        value={formData.nationalId}
-                        onChange={handleChange}
-                      />
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Previous School Details */}
-          <div className="col-xxl-6">
-            <div className="shadow-1 radius-12 bg-base h-100 overflow-hidden">
-              <div className="card-header border-bottom bg-base py-16 px-24 d-flex align-items-center justify-content-between">
-                <h6 className="text-lg fw-semibold mb-0">Previous School Details</h6>
-              </div>
-              <div className="card-body p-20">
-                <div className="row gy-3">
-                  <div className="col-sm-6">
-                    <div>
-                      <label htmlFor="previousSchoolName" className="text-sm fw-semibold text-primary-light d-inline-block mb-8">
-                        School Name
-                      </label>
-                      <input
-                        type="text"
-                        className="form-control"
-                        id="previousSchoolName"
-                        placeholder="Enter School Name"
-                        value={formData.previousSchoolName}
-                        onChange={handleChange}
-                      />
-                    </div>
-                  </div>
-                  <div className="col-sm-6">
-                    <div>
-                      <label htmlFor="previousSchoolAddress" className="text-sm fw-semibold text-primary-light d-inline-block mb-8">
-                        Address
-                      </label>
-                      <input
-                        type="text"
-                        className="form-control"
-                        id="previousSchoolAddress"
-                        placeholder="Enter Address"
-                        value={formData.previousSchoolAddress}
-                        onChange={handleChange}
-                      />
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Address */}
-          <div className="col-xxl-6">
-            <div className="shadow-1 radius-12 bg-base h-100 overflow-hidden">
-              <div className="card-header border-bottom bg-base py-16 px-24 d-flex align-items-center justify-content-between">
-                <h6 className="text-lg fw-semibold mb-0">Address</h6>
-              </div>
-              <div className="card-body p-20">
-                <div className="row gy-3">
-                  <div className="col-sm-6">
-                    <div>
-                      <label htmlFor="currentAddress" className="text-sm fw-semibold text-primary-light d-inline-block mb-8">
-                        Current Address
-                      </label>
-                      <input
-                        type="text"
-                        className="form-control"
-                        id="currentAddress"
-                        placeholder="Enter Current Address"
-                        value={formData.currentAddress}
-                        onChange={handleChange}
-                      />
-                    </div>
-                  </div>
-                  <div className="col-sm-6">
-                    <div>
-                      <label htmlFor="permanentAddress" className="text-sm fw-semibold text-primary-light d-inline-block mb-8">
-                        Permanent Address
-                      </label>
-                      <input
-                        type="text"
-                        className="form-control"
-                        id="permanentAddress"
-                        placeholder="Enter Permanent Address"
-                        value={formData.permanentAddress}
-                        onChange={handleChange}
-                      />
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Hostel Details */}
-          <div className="col-xxl-6">
-            <div className="shadow-1 radius-12 bg-base h-100 overflow-hidden">
-              <div className="card-header border-bottom bg-base py-16 px-24 d-flex align-items-center justify-content-between">
-                <h6 className="text-lg fw-semibold mb-0">Hostel Details</h6>
-              </div>
-              <div className="card-body p-20">
-                <div className="row gy-3">
-                  <div className="col-sm-6">
-                    <div>
-                      <label htmlFor="hostel" className="text-sm fw-semibold text-primary-light d-inline-block mb-8">
-                        Hostel
-                      </label>
-                      <input
-                        type="text"
-                        className="form-control"
-                        id="hostel"
-                        placeholder="Enter Hostel"
-                        value={formData.hostel}
-                        onChange={handleChange}
-                      />
-                    </div>
-                  </div>
-                  <div className="col-sm-6">
-                    <div>
-                      <label htmlFor="roomNo" className="text-sm fw-semibold text-primary-light d-inline-block mb-8">
-                        Room No
-                      </label>
-                      <input
-                        type="text"
-                        className="form-control"
-                        id="roomNo"
-                        placeholder="Enter Room No"
-                        value={formData.roomNo}
-                        onChange={handleChange}
-                      />
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Upload Documents */}
-          <div className="col-xxl-6">
-            <div className="shadow-1 radius-12 bg-base h-100 overflow-hidden">
-              <div className="card-header border-bottom bg-base py-16 px-24 d-flex align-items-center justify-content-between">
-                <h6 className="text-lg fw-semibold mb-0">Upload Documents</h6>
-              </div>
-              <div className="card-body p-20">
-                <div className="row gy-3">
-                  <div className="col-sm-6">
-                    <div>
-                      <label htmlFor="docName" className="text-sm fw-semibold text-primary-light d-inline-block mb-8">
-                        Doc Name
-                      </label>
-                      <input
-                        type="text"
-                        className="form-control"
-                        id="docName"
-                        placeholder="Enter Doc Name"
-                        value={formData.docName}
-                        onChange={handleChange}
-                      />
-                    </div>
-                  </div>
-                  <div className="col-sm-6">
-                    <div>
-                      <label className="text-sm fw-semibold text-primary-light d-inline-block mb-8">
-                        Document File <span className="text-danger-600">*</span>
-                      </label>
-                      <div className="drop-zone height-44-px p-4 d-flex justify-content-center align-items-center text-center fw-medium text-md cursor-pointer border border-neutral-400 radius-8 border-dashed bg-hover-neutral-200">
-                        <span className="drop-zone__prompt">Drag & drop a file here or click</span>
-                        <input type="file" id="documentFile" className="drop-zone__input" onChange={handleChange} />
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Student Details (textarea) */}
-          <div className="col-xl-12">
-            <div className="shadow-1 radius-12 bg-base h-100 overflow-hidden">
-              <div className="card-header border-bottom bg-base py-16 px-24 d-flex align-items-center justify-content-between">
-                <h6 className="text-lg fw-semibold mb-0">Student Details</h6>
-              </div>
-              <div className="card-body p-20">
-                <div className="row gy-3">
-                  <div className="col-sm-12">
-                    <div>
-                      <label htmlFor="details" className="text-sm fw-semibold text-primary-light d-inline-block mb-8">
-                        Details
-                      </label>
-                      <textarea
-                        id="details"
-                        className="form-control"
-                        placeholder="Enter details"
-                        rows="4"
-                        value={formData.details}
-                        onChange={handleChange}
-                      ></textarea>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Login Details */}
-          <div className="col-xl-12">
-            <div className="shadow-1 radius-12 bg-base h-100 overflow-hidden">
-              <div className="card-header border-bottom bg-base py-16 px-24 d-flex align-items-center justify-content-between">
-                <h6 className="text-lg fw-semibold mb-0">Login Details</h6>
-              </div>
-              <div className="card-body p-20">
-                <div className="row gy-3">
-                  <div className="col-sm-6">
-                    <div>
-                      <label htmlFor="loginEmail" className="text-sm fw-semibold text-primary-light d-inline-block mb-8">
-                        Email <span className="text-danger-600">*</span>
-                      </label>
-                      <input
-                        type="email"
-                        className="form-control"
-                        id="loginEmail"
-                        placeholder="Enter Email"
-                        value={formData.loginEmail}
-                        onChange={handleChange}
-                      />
-                    </div>
-                  </div>
-                  <div className="col-sm-6">
-                    <div>
-                      <label htmlFor="password" className="text-sm fw-semibold text-primary-light d-inline-block mb-8">
-                        Password <span className="text-danger-600">*</span>
-                      </label>
-                      <div className="position-relative">
-                        <input
-                          type={showPassword ? 'text' : 'password'}
-                          id="password"
-                          className="form-control"
-                          placeholder="Enter your password"
-                          value={formData.password}
-                          onChange={handleChange}
-                        />
-                        <span
-                          className={`toggle-password ${showPassword ? 'ri-eye-off-line' : 'ri-eye-line'} cursor-pointer position-absolute end-0 top-50 translate-middle-y me-16 text-secondary-light`}
-                          onClick={() => setShowPassword(!showPassword)}
-                        ></span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Form Buttons */}
-          <div className="col-12">
-            <div className="d-flex align-items-center justify-content-center gap-3 mt-8">
-              <button
-                type="button"
-                className="border border-danger-600 bg-hover-danger-200 text-danger-600 text-md px-50 py-11 radius-8"
-                onClick={handleReset}
-              >
-                Cancel
-              </button>
-              <button
-                type="submit"
-                className="btn btn-primary-600 border border-primary-600 text-md px-28 py-12 radius-8"
-              >
-                Save Changes
-              </button>
-            </div>
-          </div>
+          <Skeleton />
         </div>
-      </form>
+      ) : (
+        <form onSubmit={handleSubmit} noValidate>
+          <div className="row gy-3">
+            {/* ACADEMIC & PERSONAL */}
+            <Card title="Academic & Personal Information">
+              <div className="row gy-3">
+                <div className="col-xxl-3 col-xl-4 col-sm-6">
+                  <Field
+                    label="Academic Year"
+                    required
+                    error={errors.academicYear}
+                  >
+                    {sel("academicYear", "Select Year", [
+                      "2023-2024",
+                      "2024-2025",
+                      "2025-2026",
+                      "2026-2027",
+                    ])}
+                  </Field>
+                </div>
+                <div className="col-xxl-3 col-xl-4 col-sm-6">
+                  <Field label="Class" required error={errors.classSection}>
+                    {sel("classSection", "Select Class", [
+                      "Nursery",
+                      "LKG",
+                      "UKG",
+                      "Class I",
+                      "Class II",
+                      "Class III",
+                      "Class IV",
+                      "Class V",
+                      "Class VI",
+                      "Class VII",
+                      "Class VIII",
+                      "Class IX",
+                      "Class X",
+                      "Class XI",
+                      "Class XII",
+                    ])}
+                  </Field>
+                </div>
+                <div className="col-xxl-3 col-xl-4 col-sm-6">
+                  <Field label="Section" required error={errors.section}>
+                    {sel("section", "Select Section", [
+                      "A",
+                      "B",
+                      "C",
+                      "D",
+                      "E",
+                    ])}
+                  </Field>
+                </div>
+                <div className="col-xxl-3 col-xl-4 col-sm-6">
+                  <Field label="Roll Number">
+                    {inp("rollNumber", "Enter roll number")}
+                  </Field>
+                </div>
+                <div className="col-xxl-3 col-xl-4 col-sm-6">
+                  <Field
+                    label="Admission No."
+                    required
+                    error={errors.admissionNo}
+                  >
+                    {inp("admissionNo", "e.g. ADM2025001")}
+                  </Field>
+                </div>
+                <div className="col-xxl-3 col-xl-4 col-sm-6">
+                  <Field
+                    label="Full Name (as per certificate)"
+                    required
+                    error={errors.fullName}
+                  >
+                    {inp("fullName", "Enter full name")}
+                  </Field>
+                </div>
+                <div className="col-xxl-3 col-xl-4 col-sm-6">
+                  <Field label="Gender" required error={errors.gender}>
+                    {sel("gender", "Select Gender", [
+                      "Male",
+                      "Female",
+                      "Other",
+                    ])}
+                  </Field>
+                </div>
+                <div className="col-xxl-3 col-xl-4 col-sm-6">
+                  <Field
+                    label="Date of Birth"
+                    required
+                    error={errors.dateOfBirth}
+                  >
+                    <DatePicker
+                      selected={
+                        formData.dateOfBirth
+                          ? new Date(formData.dateOfBirth)
+                          : null
+                      }
+                      onChange={(date) =>
+                        setFormData({
+                          ...formData,
+                          dateOfBirth: date.toISOString().split("T")[0],
+                        })
+                      }
+                      dateFormat="dd-MM-yyyy"
+                      placeholderText="DD-MM-YYYY"
+                      className={`form-control ${errors.dateOfBirth ? "border-danger-600" : ""}`}
+                      wrapperClassName="w-100"
+                      popperClassName="shadow-lg border-0"
+                      showMonthDropdown
+                      showYearDropdown
+                      dropdownMode="select"
+                      maxDate={new Date()}
+                    />
+                  </Field>
+                </div>
+                <div className="col-xxl-3 col-xl-4 col-sm-6">
+                  <Field label="Category" required error={errors.category}>
+                    {sel("category", "Select Category", [
+                      "General",
+                      "OBC",
+                      "SC",
+                      "ST",
+                      "EWS",
+                      "NT",
+                      "SBC",
+                    ])}
+                  </Field>
+                </div>
+                <div className="col-xxl-3 col-xl-4 col-sm-6">
+                  <Field label="Religion" required error={errors.religion}>
+                    {sel("religion", "Select Religion", [
+                      "Hindu",
+                      "Muslim",
+                      "Christian",
+                      "Sikh",
+                      "Buddhist",
+                      "Jain",
+                      "Parsi",
+                      "Other",
+                    ])}
+                  </Field>
+                </div>
+                <div className="col-xxl-3 col-xl-4 col-sm-6">
+                  <Field label="Caste">
+                    {inp("caste", "Enter caste (optional)")}
+                  </Field>
+                </div>
+                <div className="col-xxl-3 col-xl-4 col-sm-6">
+                  <Field
+                    label="Mother Tongue"
+                    required
+                    error={errors.motherTongue}
+                  >
+                    {sel("motherTongue", "Select", [
+                      "Hindi",
+                      "Marathi",
+                      "Gujarati",
+                      "Tamil",
+                      "Telugu",
+                      "Kannada",
+                      "Bengali",
+                      "Malayalam",
+                      "Punjabi",
+                      "Odia",
+                      "Other",
+                    ])}
+                  </Field>
+                </div>
+                <div className="col-xxl-3 col-xl-4 col-sm-6">
+                  <Field
+                    label="Nationality"
+                    required
+                    error={errors.nationality}
+                  >
+                    {inp("nationality", "Nationality")}
+                  </Field>
+                </div>
+                <div className="col-xxl-3 col-xl-4 col-sm-6">
+                  <Field
+                    label="Mobile Number"
+                    required
+                    error={errors.phoneNumber}
+                  >
+                    {inp("phoneNumber", "10-digit mobile number", "tel")}
+                  </Field>
+                </div>
+                <div className="col-xxl-3 col-xl-4 col-sm-6">
+                  <Field label="Student Email" error={errors.studentEmail}>
+                    {inp("studentEmail", "student@email.com", "email")}
+                  </Field>
+                </div>
+                <div className="col-xxl-3 col-xl-4 col-sm-6">
+                  <Field label="Aadhar Number" error={errors.aadharNumber}>
+                    {inp("aadharNumber", "12-digit Aadhar number")}
+                  </Field>
+                </div>
+              </div>
+            </Card>
+
+            {/* PARENT & GUARDIAN */}
+            <Card title="Parent & Guardian Information">
+              <div className="row gy-3">
+                <SectionTitle title="Father's Details" />
+                <div className="col-xxl-3 col-xl-4 col-sm-6">
+                  <Field
+                    label="Father's Name"
+                    required
+                    error={errors.fathersName}
+                  >
+                    {inp("fathersName", "Enter father's full name")}
+                  </Field>
+                </div>
+                <div className="col-xxl-3 col-xl-4 col-sm-6">
+                  <Field
+                    label="Father's Mobile"
+                    required
+                    error={errors.fathersPhone}
+                  >
+                    {inp("fathersPhone", "10-digit number", "tel")}
+                  </Field>
+                </div>
+                <div className="col-xxl-3 col-xl-4 col-sm-6">
+                  <Field label="Father's Occupation">
+                    {inp("fathersOccupation", "e.g. Farmer, Business, Service")}
+                  </Field>
+                </div>
+
+                <SectionTitle title="Mother's Details" />
+                <div className="col-xxl-3 col-xl-4 col-sm-6">
+                  <Field
+                    label="Mother's Name"
+                    required
+                    error={errors.mothersName}
+                  >
+                    {inp("mothersName", "Enter mother's full name")}
+                  </Field>
+                </div>
+                <div className="col-xxl-3 col-xl-4 col-sm-6">
+                  <Field label="Mother's Mobile" error={errors.mothersPhone}>
+                    {inp("mothersPhone", "10-digit number", "tel")}
+                  </Field>
+                </div>
+                <div className="col-xxl-3 col-xl-4 col-sm-6">
+                  <Field label="Mother's Occupation">
+                    {inp("mothersOccupation", "e.g. Homemaker, Teacher")}
+                  </Field>
+                </div>
+
+                {/* Guardian Radio */}
+                <div className="col-12 mt-8">
+                  <span className="fw-semibold text-primary-light d-block mb-8">
+                    Primary Guardian
+                  </span>
+                  <div className="d-flex flex-wrap gap-28">
+                    {[
+                      ["father", "Father"],
+                      ["mother", "Mother"],
+                      ["other", "Other"],
+                    ].map(([v, l]) => (
+                      <div
+                        key={v}
+                        className="form-check d-flex align-items-center gap-2"
+                      >
+                        <input
+                          className="form-check-input"
+                          type="radio"
+                          name="primaryGuardian"
+                          id={`g_${v}`}
+                          value={v}
+                          checked={formData.primaryGuardian === v}
+                          onChange={() =>
+                            setFormData((p) => ({ ...p, primaryGuardian: v }))
+                          }
+                        />
+                        <label
+                          className="form-check-label fw-medium text-secondary-light"
+                          htmlFor={`g_${v}`}
+                        >
+                          {l}
+                        </label>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {formData.primaryGuardian === "other" && (
+                  <>
+                    <SectionTitle title="Guardian Details" />
+                    <div className="col-xxl-3 col-xl-4 col-sm-6">
+                      <Field
+                        label="Guardian Name"
+                        required
+                        error={errors.guardianName}
+                      >
+                        {inp("guardianName", "Enter name")}
+                      </Field>
+                    </div>
+                    <div className="col-xxl-3 col-xl-4 col-sm-6">
+                      <Field
+                        label="Relation"
+                        required
+                        error={errors.guardianRelation}
+                      >
+                        {inp("guardianRelation", "e.g. Uncle, Grandparent")}
+                      </Field>
+                    </div>
+                    <div className="col-xxl-3 col-xl-4 col-sm-6">
+                      <Field
+                        label="Guardian Mobile"
+                        required
+                        error={errors.guardianPhone}
+                      >
+                        {inp("guardianPhone", "10-digit number", "tel")}
+                      </Field>
+                    </div>
+                    <div className="col-xxl-3 col-xl-4 col-sm-6">
+                      <Field
+                        label="Guardian Email"
+                        error={errors.guardianEmail}
+                      >
+                        {inp("guardianEmail", "guardian@email.com", "email")}
+                      </Field>
+                    </div>
+                  </>
+                )}
+              </div>
+            </Card>
+
+            {/* MEDICAL */}
+            <HalfCard title="Medical Details">
+              <div className="row gy-3">
+                <div className="col-sm-6">
+                  <Field label="Blood Group">
+                    {sel("bloodGroup", "Select", [
+                      "A+",
+                      "A-",
+                      "B+",
+                      "B-",
+                      "AB+",
+                      "AB-",
+                      "O+",
+                      "O-",
+                    ])}
+                  </Field>
+                </div>
+                <div className="col-sm-6">
+                  <Field label="Height (cm)" error={errors.height}>
+                    {inp("height", "e.g. 152")}
+                  </Field>
+                </div>
+                <div className="col-sm-6">
+                  <Field label="Weight (kg)" error={errors.weight}>
+                    {inp("weight", "e.g. 42")}
+                  </Field>
+                </div>
+                <div className="col-sm-6">
+                  <Field label="Known Medical Condition">
+                    {inp("medicalCondition", "e.g. Asthma, None")}
+                  </Field>
+                </div>
+              </div>
+            </HalfCard>
+
+            {/* ADDRESS */}
+            <HalfCard title="Address Details">
+              <div className="row gy-3">
+                <div className="col-12">
+                  <Field
+                    label="Current Address"
+                    required
+                    error={errors.currentAddress}
+                  >
+                    <textarea
+                      id="currentAddress"
+                      rows={3}
+                      className={`form-control ${errors.currentAddress ? "border-danger-600" : ""}`}
+                      placeholder="House No., Street, Village/City, District, State, PIN"
+                      value={formData.currentAddress}
+                      onChange={hc}
+                    />
+                  </Field>
+                </div>
+                <div className="col-12">
+                  <Field label="Permanent Address">
+                    <textarea
+                      id="permanentAddress"
+                      rows={3}
+                      className="form-control"
+                      placeholder="Same as current if not different"
+                      value={formData.permanentAddress}
+                      onChange={hc}
+                    />
+                  </Field>
+                </div>
+              </div>
+            </HalfCard>
+
+            {/* PREVIOUS SCHOOL */}
+            <Card title="Previous School / Transfer Details">
+              <div className="row gy-3">
+                <div className="col-xxl-3 col-xl-4 col-sm-6">
+                  <Field label="Previous School Name">
+                    {inp("prevSchoolName", "Enter school name")}
+                  </Field>
+                </div>
+                <div className="col-xxl-3 col-xl-4 col-sm-6">
+                  <Field label="Last Class Passed">
+                    {sel("prevClass", "Select", [
+                      "Nursery",
+                      "LKG",
+                      "UKG",
+                      "Class I",
+                      "Class II",
+                      "Class III",
+                      "Class IV",
+                      "Class V",
+                      "Class VI",
+                      "Class VII",
+                      "Class VIII",
+                      "Class IX",
+                      "Class X",
+                      "Class XI",
+                    ])}
+                  </Field>
+                </div>
+                <div className="col-xxl-3 col-xl-4 col-sm-6">
+                  <Field label="Board">
+                    {sel("prevBoard", "Select Board", [
+                      "CBSE",
+                      "ICSE",
+                      "State Board",
+                      "IB",
+                      "NIOS",
+                      "Other",
+                    ])}
+                  </Field>
+                </div>
+                <div className="col-xxl-3 col-xl-4 col-sm-6">
+                  <Field label="Passing Year" error={errors.prevPassYear}>
+                    {inp("prevPassYear", "e.g. 2024")}
+                  </Field>
+                </div>
+                <div className="col-xxl-3 col-xl-4 col-sm-6">
+                  <Field label="Percentage / CGPA">
+                    {inp("prevPercentage", "e.g. 85%")}
+                  </Field>
+                </div>
+                <div className="col-xxl-3 col-xl-4 col-sm-6">
+                  <Field label="TC Number">
+                    {inp("prevTCNumber", "Transfer Certificate No.")}
+                  </Field>
+                </div>
+              </div>
+            </Card>
+
+            {/* TRANSPORT */}
+            <HalfCard title="Transport Details (Optional)">
+              <div className="row gy-3">
+                <div className="col-sm-6">
+                  <Field label="Bus Route">
+                    {inp("busRoute", "e.g. Route 4 – Nagpur")}
+                  </Field>
+                </div>
+                <div className="col-sm-6">
+                  <Field label="Bus Stop Name">
+                    {inp("stopName", "Enter nearest stop")}
+                  </Field>
+                </div>
+              </div>
+            </HalfCard>
+
+            {/* REMARKS */}
+            <HalfCard title="Additional Notes">
+              <Field label="Remarks / Special Instructions">
+                <textarea
+                  id="remarks"
+                  rows={4}
+                  className="form-control"
+                  placeholder="Any special notes, disability info, scholarship details, etc."
+                  value={formData.remarks}
+                  onChange={hc}
+                />
+              </Field>
+            </HalfCard>
+
+            {/* LOGIN  */}
+            <Card title="Student Portal Login">
+              <div className="row gy-3">
+                <div className="col-sm-6">
+                  <Field label="Login Email" required error={errors.loginEmail}>
+                    {inp("loginEmail", "student@school.com", "email")}
+                  </Field>
+                </div>
+                <div className="col-sm-6">
+                  <Field label="New Password" error={errors.password}>
+                    <div className="position-relative">
+                      <input
+                        type={showPwd ? "text" : "password"}
+                        id="password"
+                        className={`form-control ${errors.password ? "border-danger-600" : ""}`}
+                        placeholder="Leave blank to keep existing password"
+                        value={formData.password}
+                        onChange={hc}
+                      />
+                      <button
+                        type="button"
+                        className="btn p-0 border-0 bg-transparent position-absolute end-0 top-50 translate-middle-y me-16 text-secondary-light"
+                        onClick={() => setShowPwd((p) => !p)}
+                        aria-label="Toggle password"
+                      >
+                        <i
+                          className={`ri-${showPwd ? "eye-off" : "eye"}-line`}
+                          style={{ fontSize: 18 }}
+                        />
+                      </button>
+                    </div>
+                    <p className="text-secondary-light text-xs mt-4">
+                      Leave blank to keep the existing password.
+                    </p>
+                  </Field>
+                </div>
+              </div>
+            </Card>
+
+            {/* ACTIONS */}
+            <div className="col-12">
+              <div className="d-flex align-items-center justify-content-center gap-3 mt-8">
+                <button
+                  type="button"
+                  onClick={() => navigate("/students")}
+                  className="border border-danger-600 bg-hover-danger-200 text-danger-600 text-md px-50 py-11 radius-8"
+                  style={{ background: "none", cursor: "pointer" }}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="btn btn-primary-600 border border-primary-600 text-md px-28 py-12 radius-8"
+                  style={{ minWidth: 160 }}
+                >
+                  {loading ? (
+                    <>
+                      <span className="spinner-border spinner-border-sm me-2" />
+                      Saving…
+                    </>
+                  ) : (
+                    "Save Changes"
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        </form>
+      )}
     </div>
   );
 };

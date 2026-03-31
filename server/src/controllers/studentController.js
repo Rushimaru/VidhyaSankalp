@@ -1,30 +1,11 @@
 import Student from '../models/Student.js';
 
-// ── Helper: read a cookie value from request headers ──────────────────────────
-const getCookieValue = (req, name) => {
-  const cookies = req.headers.cookie || '';
-  const found = cookies
-    .split(';')
-    .map((c) => c.trim())
-    .find((c) => c.startsWith(`${name}=`));
-  return found ? found.split('=')[1] : null;
-};
-
-// @desc   Add new student
-// @route  POST /api/students
-// @access Private
+// Add new student
 export const addStudent = async (req, res) => {
   try {
-    // Get schoolId from cookie
-    const schoolId = getCookieValue(req, 'userId');
-
-    if (!schoolId) {
-      return res.status(401).json({ message: 'School ID not found. Please log in again.' });
-    }
-
+    const schoolId = req.user._id;
     const { admissionNo, loginEmail } = req.body;
 
-    // Check duplicates within same school
     const [admissionExists, emailExists] = await Promise.all([
       Student.findOne({ admissionNo, schoolId }),
       Student.findOne({ loginEmail }),
@@ -67,16 +48,10 @@ export const addStudent = async (req, res) => {
   }
 };
 
-// @desc   Get all students for logged-in school
-// @route  GET /api/students
-// @access Private
+// Get all students for logged-in school
 export const getStudents = async (req, res) => {
   try {
-    const schoolId = getCookieValue(req, 'userId');
-
-    if (!schoolId) {
-      return res.status(401).json({ message: 'School ID not found. Please log in again.' });
-    }
+    const schoolId = req.user._id;
 
     const students = await Student.find({ schoolId })
       .select('-password')
@@ -89,12 +64,10 @@ export const getStudents = async (req, res) => {
   }
 };
 
-// @desc   Get single student
-// @route  GET /api/students/:id
-// @access Private
+// Get single student
 export const getStudentById = async (req, res) => {
   try {
-    const schoolId = getCookieValue(req, 'userId');
+    const schoolId = req.user._id;
 
     const student = await Student.findOne({ _id: req.params.id, schoolId })
       .select('-password');
@@ -110,12 +83,12 @@ export const getStudentById = async (req, res) => {
   }
 };
 
-// @desc   Update student
-// @route  PUT /api/students/:id
-// @access Private
+// Update student
 export const updateStudent = async (req, res) => {
   try {
-    const schoolId = getCookieValue(req, 'userId');
+    const schoolId = req.user._id;
+
+    // Prevent overwriting schoolId or password via this route
     const { password, schoolId: _, ...updateData } = req.body;
 
     const student = await Student.findOneAndUpdate(
@@ -131,16 +104,20 @@ export const updateStudent = async (req, res) => {
     res.json({ message: 'Student updated successfully.', student });
   } catch (error) {
     console.error('Update student error:', error.message);
+
+    if (error.name === 'ValidationError') {
+      const messages = Object.values(error.errors).map((e) => e.message);
+      return res.status(400).json({ message: messages.join(', ') });
+    }
+
     res.status(500).json({ message: 'Server error.' });
   }
 };
 
-// @desc   Delete student
-// @route  DELETE /api/students/:id
-// @access Private
+// Delete student
 export const deleteStudent = async (req, res) => {
   try {
-    const schoolId = getCookieValue(req, 'userId');
+    const schoolId = req.user._id;
 
     const student = await Student.findOneAndDelete({ _id: req.params.id, schoolId });
 

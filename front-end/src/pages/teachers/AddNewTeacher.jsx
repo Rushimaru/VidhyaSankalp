@@ -1,870 +1,564 @@
-import React, { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import { useAuth } from '../../context/AuthContext';
+import { validateTeacher } from '../../utils/validators';
 
+/* Toast */
+const useToast = () => {
+  const [toasts, setToasts] = useState([]);
+  const add = (message, type = 'success') => {
+    const id = Date.now();
+    setToasts((p) => [...p, { id, message, type }]);
+    setTimeout(() => setToasts((p) => p.filter((t) => t.id !== id)), 4000);
+  };
+  return { toasts, success: (m) => add(m, 'success'), error: (m) => add(m, 'error') };
+};
+
+const Toast = ({ toasts }) => (
+  <div style={{ position: 'fixed', top: 20, right: 20, zIndex: 9999, display: 'flex', flexDirection: 'column', gap: 10 }}>
+    {toasts.map((t) => (
+      <div key={t.id} style={{
+        display: 'flex', alignItems: 'center', gap: 10, padding: '12px 18px',
+        borderRadius: 10, minWidth: 280, maxWidth: 380,
+        background: t.type === 'success' ? '#16a34a' : '#dc2626',
+        color: '#fff', fontWeight: 600, fontSize: 14,
+        boxShadow: '0 4px 20px rgba(0,0,0,0.18)', animation: 'slideIn .3s ease',
+      }}>
+        <span style={{ fontSize: 18 }}>{t.type === 'success' ? '✅' : '❌'}</span>
+        {t.message}
+      </div>
+    ))}
+    <style>{`@keyframes slideIn{from{opacity:0;transform:translateX(60px)}to{opacity:1;transform:translateX(0)}}`}</style>
+  </div>
+);
+
+/* Reusable UI */
+const Field = ({ label, required, error, children }) => (
+  <div>
+    <label className="text-sm fw-semibold text-primary-light d-inline-block mb-8">
+      {label} {required && <span className="text-danger-600">*</span>}
+    </label>
+    {children}
+    {error && <p className="text-danger-600 text-xs mt-4">{error}</p>}
+  </div>
+);
+
+const SectionTitle = ({ title }) => (
+  <div className="col-12">
+    <p className="fw-semibold text-primary-light mb-0 pb-8 border-bottom">{title}</p>
+  </div>
+);
+
+const Card = ({ title, children }) => (
+  <div className="col-lg-12">
+    <div className="shadow-1 radius-12 bg-base overflow-hidden">
+      <div className="card-header border-bottom bg-base py-16 px-24">
+        <h6 className="text-lg fw-semibold mb-0">{title}</h6>
+      </div>
+      <div className="card-body p-20">{children}</div>
+    </div>
+  </div>
+);
+
+const HalfCard = ({ title, children }) => (
+  <div className="col-xxl-6">
+    <div className="shadow-1 radius-12 bg-base overflow-hidden h-100">
+      <div className="card-header border-bottom bg-base py-16 px-24">
+        <h6 className="text-lg fw-semibold mb-0">{title}</h6>
+      </div>
+      <div className="card-body p-20">{children}</div>
+    </div>
+  </div>
+);
+
+/* Initial state */
+const INIT = {
+  // Identity
+  employeeId: '', fullName: '', gender: '', dateOfBirth: '',
+  category: '', religion: '', caste: '', nationality: 'Indian',
+  aadharNumber: '', panNumber: '', maritalStatus: '',
+  // Professional
+  designation: '', department: '', subjectsTaught: '', classesAssigned: '',
+  qualification: '', experience: '', contractType: '', joinDate: '', workLocation: '',
+  // Contact
+  phoneNumber: '', alternatePhone: '', email: '',
+  // Family
+  fathersName: '', mothersName: '', spouseName: '',
+  emergencyContactName: '', emergencyContactPhone: '', emergencyContactRelation: '',
+  // Address
+  currentAddress: '', permanentAddress: '',
+  // Medical
+  bloodGroup: '', medicalCondition: '',
+  // Bank
+  bankAccountNumber: '', bankName: '', ifscCode: '', panForSalary: '',
+  // Previous employment
+  prevInstituteName: '', prevInstituteAddress: '', prevDesignation: '', prevExperienceYears: '',
+  // Misc
+  remarks: '',
+  // Login
+  loginEmail: '', password: '',
+};
+
+/* Main Component */
 const AddNewTeacher = () => {
-  // Form state
-  const [formData, setFormData] = useState({
-    teacherId: '',
-    fullName: '',
-    subject: '',
-    class: '',
-    gender: '',
-    dateOfBirth: '',
-    fathersName: '',
-    mothersName: '',
-    maritalStatus: '',
-    contractType: '',
-    shift: '',
-    workLocation: '',
-    joinDate: '',
-    phoneNumber: '',
-    email: '',
-    experience: '',
-    qualification: '',
-    teacherPhoto: null,
-    bloodGroup: '',
-    height: '',
-    weight: '',
-    bankAccountNumber: '',
-    bankName: '',
-    ifscCode: '',
-    nationalId: '',
-    docName: '',
-    documentFile: null,
-    previousSchoolName: '',
-    previousSchoolAddress: '',
-    currentAddress: '',
-    permanentAddress: '',
-    teacherDetails: '',
-    facebookLink: '',
-    linkedInLink: '',
-    instagramLink: '',
-    youtubeLink: '',
-    loginEmail: '',
-    password: '',
-  });
+  const navigate = useNavigate();
+  const { token } = useAuth();
+  const { toasts, success, error } = useToast();
 
-  // Password visibility state
-  const [showPassword, setShowPassword] = useState(false);
+  const [formData, setFormData] = useState(INIT);
+  const [errors, setErrors]     = useState({});
+  const [showPwd, setShowPwd]   = useState(false);
+  const [loading, setLoading]   = useState(false);
 
-  // Handle input changes for text, select, date
-  const handleChange = (e) => {
-    const { id, value, type, files } = e.target;
-    if (type === 'file') {
-      setFormData((prev) => ({ ...prev, [id]: files[0] }));
-    } else {
-      setFormData((prev) => ({ ...prev, [id]: value }));
+  /* Helpers */
+  const hc = (e) => {
+    const { id, value } = e.target;
+    setFormData((p) => ({ ...p, [id]: value }));
+    if (errors[id]) setErrors((p) => ({ ...p, [id]: undefined }));
+  };
+
+  const inp = (id, placeholder, type = 'text') => (
+    <input
+      type={type} id={id} placeholder={placeholder}
+      className={`form-control ${errors[id] ? 'border-danger-600' : ''}`}
+      value={formData[id]} onChange={hc}
+    />
+  );
+
+  const sel = (id, placeholder, options) => (
+    <select
+      id={id}
+      className={`form-control form-select ${errors[id] ? 'border-danger-600' : ''}`}
+      value={formData[id]} onChange={hc}
+    >
+      <option value="" disabled>{placeholder}</option>
+      {options.map((o) => <option key={o} value={o}>{o}</option>)}
+    </select>
+  );
+
+  /* ── Submit ── */
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    const errs = validateTeacher(formData);
+
+    if (Object.keys(errs).length) {
+      setErrors(errs);
+      error('Please fix the highlighted errors before saving.');
+      setTimeout(() => {
+        document.querySelector('.text-danger-600.text-xs')
+          ?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }, 100);
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const payload = {
+        ...formData,
+        subjectsTaught:  formData.subjectsTaught.split(',').map((s) => s.trim()).filter(Boolean),
+        classesAssigned: formData.classesAssigned.split(',').map((s) => s.trim()).filter(Boolean),
+      };
+
+      const response = await fetch('/api/teachers', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(payload),
+      });
+
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.message || 'Failed to save teacher.');
+
+      success(`Teacher "${formData.fullName}" added successfully!`);
+      setFormData(INIT);
+      setErrors({});
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    } catch (err) {
+      error(err.message);
+    } finally {
+      setLoading(false);
     }
   };
 
-  // Handle form submit
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    console.log('Form Data:', formData);
-    // Here you would send data to API
-    alert('Teacher added successfully!');
-  };
-
-  // Handle reset
   const handleReset = () => {
-    setFormData({
-      teacherId: '',
-      fullName: '',
-      subject: '',
-      class: '',
-      gender: '',
-      dateOfBirth: '',
-      fathersName: '',
-      mothersName: '',
-      maritalStatus: '',
-      contractType: '',
-      shift: '',
-      workLocation: '',
-      joinDate: '',
-      phoneNumber: '',
-      email: '',
-      experience: '',
-      qualification: '',
-      teacherPhoto: null,
-      bloodGroup: '',
-      height: '',
-      weight: '',
-      bankAccountNumber: '',
-      bankName: '',
-      ifscCode: '',
-      nationalId: '',
-      docName: '',
-      documentFile: null,
-      previousSchoolName: '',
-      previousSchoolAddress: '',
-      currentAddress: '',
-      permanentAddress: '',
-      teacherDetails: '',
-      facebookLink: '',
-      linkedInLink: '',
-      instagramLink: '',
-      youtubeLink: '',
-      loginEmail: '',
-      password: '',
-    });
-    setShowPassword(false);
+    setFormData(INIT);
+    setErrors({});
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
+  /* Render */
   return (
     <div className="dashboard-main-body">
+      <Toast toasts={toasts} />
+
       {/* Breadcrumb */}
-      <div className="breadcrumb d-flex flex-wrap align-items-center justify-content-between gap-3 mb-24">
+      <div className="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-24">
         <div>
-          <h1 className="fw-semibold mb-4 h6 text-primary-light">Add New Teacher</h1>
-          <div>
-            <Link to="/" className="text-secondary-light hover-text-primary hover-underline">
-              Dashboard
-            </Link>
-            <Link to="/teachers" className="text-secondary-light hover-text-primary hover-underline">
-              / Teacher
-            </Link>
+          <h6 className="fw-semibold mb-4 text-primary-light">Add New Teacher</h6>
+          <div className="text-sm">
+            <Link to="/"        className="text-secondary-light hover-text-primary">Dashboard</Link>
+            <Link to="/teachers" className="text-secondary-light hover-text-primary"> / Teachers</Link>
             <span className="text-secondary-light"> / Add New Teacher</span>
           </div>
         </div>
-        <Link to="/teachers/add" className="btn btn-primary-600 d-flex align-items-center gap-6 d-none">
-          <span className="d-flex text-md">
-            <i className="ri-add-large-line"></i>
-          </span>
-          Add Teacher
-        </Link>
       </div>
 
-      <form onSubmit={handleSubmit} className="mt-24">
+      <form onSubmit={handleSubmit} noValidate>
         <div className="row gy-3">
-          {/* Personal Info Card */}
-          <div className="col-lg-12">
-            <div className="shadow-1 radius-12 bg-base h-100 overflow-hidden">
-              <div className="card-header border-bottom bg-base py-16 px-24 d-flex align-items-center justify-content-between">
-                <h6 className="text-lg fw-semibold mb-0">Personal Info</h6>
+
+          {/* PERSONAL INFORMATION */}
+          <Card title="Personal Information">
+            <div className="row gy-3">
+              <div className="col-xxl-3 col-xl-4 col-sm-6">
+                <Field label="Employee ID" required error={errors.employeeId}>
+                  {inp('employeeId', 'e.g. TCH2025001')}
+                </Field>
               </div>
-              <div className="card-body p-20">
-                <div className="row gy-3">
-                  <div className="col-xxl-3 col-xl-4 col-sm-6">
-                    <div>
-                      <label htmlFor="teacherId" className="text-sm fw-semibold text-primary-light d-inline-block mb-8">
-                        Teacher ID <span className="text-danger-600">*</span>
-                      </label>
-                      <input
-                        type="text"
-                        className="form-control"
-                        id="teacherId"
-                        placeholder="Enter Teacher ID"
-                        value={formData.teacherId}
-                        onChange={handleChange}
-                      />
-                    </div>
-                  </div>
-                  <div className="col-xxl-3 col-xl-4 col-sm-6">
-                    <div>
-                      <label htmlFor="fullName" className="text-sm fw-semibold text-primary-light d-inline-block mb-8">
-                        Full Name <span className="text-danger-600">*</span>
-                      </label>
-                      <input
-                        type="text"
-                        className="form-control"
-                        id="fullName"
-                        placeholder="Enter your Full Name"
-                        value={formData.fullName}
-                        onChange={handleChange}
-                      />
-                    </div>
-                  </div>
-                  <div className="col-xxl-3 col-xl-4 col-sm-6">
-                    <div>
-                      <label htmlFor="subject" className="text-sm fw-semibold text-primary-light d-inline-block mb-8">
-                        Subject
-                      </label>
-                      <select
-                        id="subject"
-                        className="form-control form-select"
-                        value={formData.subject}
-                        onChange={handleChange}
-                      >
-                        <option value="" disabled>Select a Subject</option>
-                        <option value="English">English</option>
-                        <option value="Mathematics">Mathematics</option>
-                        <option value="Physics">Physics</option>
-                      </select>
-                    </div>
-                  </div>
-                  <div className="col-xxl-3 col-xl-4 col-sm-6">
-                    <div>
-                      <label htmlFor="class" className="text-sm fw-semibold text-primary-light d-inline-block mb-8">
-                        Class
-                      </label>
-                      <select
-                        id="class"
-                        className="form-control form-select"
-                        value={formData.class}
-                        onChange={handleChange}
-                      >
-                        <option value="" disabled>Select a Class</option>
-                        <option value="1 (A)">1 (A)</option>
-                        <option value="2 (A)">2 (A)</option>
-                        <option value="3 (A)">3 (A)</option>
-                      </select>
-                    </div>
-                  </div>
-                  <div className="col-xxl-3 col-xl-4 col-sm-6">
-                    <div>
-                      <label htmlFor="gender" className="text-sm fw-semibold text-primary-light d-inline-block mb-8">
-                        Gender
-                      </label>
-                      <select
-                        id="gender"
-                        className="form-control form-select"
-                        value={formData.gender}
-                        onChange={handleChange}
-                      >
-                        <option value="" disabled>Select Gender</option>
-                        <option value="Male">Male</option>
-                        <option value="Female">Female</option>
-                      </select>
-                    </div>
-                  </div>
-                  <div className="col-xxl-3 col-xl-4 col-sm-6">
-                    <div>
-                      <label htmlFor="dateOfBirth" className="text-sm fw-semibold text-primary-light d-inline-block mb-8">
-                        Date Of Birth <span className="text-danger-600">*</span>
-                      </label>
-                      <input
-                        type="date"
-                        className="form-control"
-                        id="dateOfBirth"
-                        value={formData.dateOfBirth}
-                        onChange={handleChange}
-                      />
-                    </div>
-                  </div>
-                  <div className="col-xxl-3 col-xl-4 col-sm-6">
-                    <div>
-                      <label htmlFor="fathersName" className="text-sm fw-semibold text-primary-light d-inline-block mb-8">
-                        Fathers Name
-                      </label>
-                      <input
-                        type="text"
-                        className="form-control"
-                        id="fathersName"
-                        placeholder="Enter Fathers Name"
-                        value={formData.fathersName}
-                        onChange={handleChange}
-                      />
-                    </div>
-                  </div>
-                  <div className="col-xxl-3 col-xl-4 col-sm-6">
-                    <div>
-                      <label htmlFor="mothersName" className="text-sm fw-semibold text-primary-light d-inline-block mb-8">
-                        Mothers Name
-                      </label>
-                      <input
-                        type="text"
-                        className="form-control"
-                        id="mothersName"
-                        placeholder="Enter mothers Name"
-                        value={formData.mothersName}
-                        onChange={handleChange}
-                      />
-                    </div>
-                  </div>
-                  <div className="col-xxl-3 col-xl-4 col-sm-6">
-                    <div>
-                      <label htmlFor="maritalStatus" className="text-sm fw-semibold text-primary-light d-inline-block mb-8">
-                        Marital Status
-                      </label>
-                      <select
-                        id="maritalStatus"
-                        className="form-control form-select"
-                        value={formData.maritalStatus}
-                        onChange={handleChange}
-                      >
-                        <option value="" disabled>Select a Marital Status</option>
-                        <option value="Married">Married</option>
-                        <option value="Unmarried">Unmarried</option>
-                      </select>
-                    </div>
-                  </div>
-                  <div className="col-xxl-3 col-xl-4 col-sm-6">
-                    <div>
-                      <label htmlFor="contractType" className="text-sm fw-semibold text-primary-light d-inline-block mb-8">
-                        Contract Type
-                      </label>
-                      <select
-                        id="contractType"
-                        className="form-control form-select"
-                        value={formData.contractType}
-                        onChange={handleChange}
-                      >
-                        <option value="" disabled>Select a Contract Type</option>
-                        <option value="Contractual">Contractual</option>
-                        <option value="Hourly">Hourly</option>
-                      </select>
-                    </div>
-                  </div>
-                  <div className="col-xxl-3 col-xl-4 col-sm-6">
-                    <div>
-                      <label htmlFor="shift" className="text-sm fw-semibold text-primary-light d-inline-block mb-8">
-                        Shift
-                      </label>
-                      <select
-                        id="shift"
-                        className="form-control form-select"
-                        value={formData.shift}
-                        onChange={handleChange}
-                      >
-                        <option value="" disabled>Select a shift</option>
-                        <option value="Day Shift">Day Shift</option>
-                        <option value="Night Shift">Night Shift</option>
-                      </select>
-                    </div>
-                  </div>
-                  <div className="col-xxl-3 col-xl-4 col-sm-6">
-                    <div>
-                      <label htmlFor="workLocation" className="text-sm fw-semibold text-primary-light d-inline-block mb-8">
-                        Work Location
-                      </label>
-                      <input
-                        type="text"
-                        className="form-control"
-                        id="workLocation"
-                        placeholder="Enter work location"
-                        value={formData.workLocation}
-                        onChange={handleChange}
-                      />
-                    </div>
-                  </div>
-                  <div className="col-xxl-3 col-xl-4 col-sm-6">
-                    <div>
-                      <label htmlFor="joinDate" className="text-sm fw-semibold text-primary-light d-inline-block mb-8">
-                        Join Date
-                      </label>
-                      <input
-                        type="date"
-                        className="form-control"
-                        id="joinDate"
-                        value={formData.joinDate}
-                        onChange={handleChange}
-                      />
-                    </div>
-                  </div>
-                  <div className="col-xxl-3 col-xl-4 col-sm-6">
-                    <div>
-                      <label htmlFor="phoneNumber" className="text-sm fw-semibold text-primary-light d-inline-block mb-8">
-                        Phone Number <span className="text-danger-600">*</span>
-                      </label>
-                      <input
-                        type="tel"
-                        className="form-control"
-                        id="phoneNumber"
-                        placeholder="Enter your Phone Number"
-                        value={formData.phoneNumber}
-                        onChange={handleChange}
-                      />
-                    </div>
-                  </div>
-                  <div className="col-xxl-3 col-xl-4 col-sm-6">
-                    <div>
-                      <label htmlFor="email" className="text-sm fw-semibold text-primary-light d-inline-block mb-8">
-                        Email <span className="text-danger-600">*</span>
-                      </label>
-                      <input
-                        type="email"
-                        className="form-control"
-                        id="email"
-                        placeholder="Enter your Email"
-                        value={formData.email}
-                        onChange={handleChange}
-                      />
-                    </div>
-                  </div>
-                  <div className="col-xxl-3 col-xl-4 col-sm-6">
-                    <div>
-                      <label htmlFor="experience" className="text-sm fw-semibold text-primary-light d-inline-block mb-8">
-                        Experience <span className="text-danger-600">*</span>
-                      </label>
-                      <input
-                        type="text"
-                        className="form-control"
-                        id="experience"
-                        placeholder="Enter experience"
-                        value={formData.experience}
-                        onChange={handleChange}
-                      />
-                    </div>
-                  </div>
-                  <div className="col-xxl-3 col-xl-4 col-sm-6">
-                    <div>
-                      <label htmlFor="qualification" className="text-sm fw-semibold text-primary-light d-inline-block mb-8">
-                        Qualification <span className="text-danger-600">*</span>
-                      </label>
-                      <input
-                        type="text"
-                        className="form-control"
-                        id="qualification"
-                        placeholder="Enter Qualification"
-                        value={formData.qualification}
-                        onChange={handleChange}
-                      />
-                    </div>
-                  </div>
-                  <div className="col-xxl-3 col-xl-4 col-sm-6">
-                    <div>
-                      <label className="text-sm fw-semibold text-primary-light d-inline-block mb-8">
-                        Teacher Photo <span className="text-danger-600">*</span>
-                      </label>
-                      <div className="drop-zone height-44-px p-4 d-flex justify-content-center align-items-center text-center fw-medium text-md cursor-pointer border border-neutral-400 radius-8 border-dashed bg-hover-neutral-200">
-                        <span className="drop-zone__prompt">Drag & drop a file here or click</span>
-                        <input
-                          type="file"
-                          id="teacherPhoto"
-                          className="drop-zone__input"
-                          onChange={handleChange}
-                        />
-                      </div>
-                    </div>
-                  </div>
-                </div>
+              <div className="col-xxl-3 col-xl-4 col-sm-6">
+                <Field label="Full Name" required error={errors.fullName}>
+                  {inp('fullName', 'Enter full name as per certificate')}
+                </Field>
+              </div>
+              <div className="col-xxl-3 col-xl-4 col-sm-6">
+                <Field label="Gender" required error={errors.gender}>
+                  {sel('gender', 'Select Gender', ['Male','Female','Other'])}
+                </Field>
+              </div>
+              <div className="col-xxl-3 col-xl-4 col-sm-6">
+                <Field label="Date of Birth" required error={errors.dateOfBirth}>
+                  {inp('dateOfBirth', '', 'date')}
+                </Field>
+              </div>
+              <div className="col-xxl-3 col-xl-4 col-sm-6">
+                <Field label="Category" required error={errors.category}>
+                  {sel('category', 'Select Category', ['General','OBC','SC','ST','EWS','NT','SBC'])}
+                </Field>
+              </div>
+              <div className="col-xxl-3 col-xl-4 col-sm-6">
+                <Field label="Religion" required error={errors.religion}>
+                  {sel('religion', 'Select Religion', ['Hindu','Muslim','Christian','Sikh','Buddhist','Jain','Parsi','Other'])}
+                </Field>
+              </div>
+              <div className="col-xxl-3 col-xl-4 col-sm-6">
+                <Field label="Caste">
+                  {inp('caste', 'Enter caste (optional)')}
+                </Field>
+              </div>
+              <div className="col-xxl-3 col-xl-4 col-sm-6">
+                <Field label="Nationality" required error={errors.nationality}>
+                  {inp('nationality', 'Nationality')}
+                </Field>
+              </div>
+              <div className="col-xxl-3 col-xl-4 col-sm-6">
+                <Field label="Marital Status">
+                  {sel('maritalStatus', 'Select', ['Married','Unmarried','Divorced','Widowed'])}
+                </Field>
+              </div>
+              <div className="col-xxl-3 col-xl-4 col-sm-6">
+                <Field label="Aadhar Number" error={errors.aadharNumber}>
+                  {inp('aadharNumber', '12-digit Aadhar number')}
+                </Field>
+              </div>
+              <div className="col-xxl-3 col-xl-4 col-sm-6">
+                <Field label="PAN Number" error={errors.panNumber}>
+                  {inp('panNumber', 'e.g. ABCDE1234F')}
+                </Field>
               </div>
             </div>
-          </div>
+          </Card>
 
-          {/* Medical Details Card */}
-          <div className="col-lg-12">
-            <div className="shadow-1 radius-12 bg-base h-100 overflow-hidden">
-              <div className="card-header border-bottom bg-base py-16 px-24 d-flex align-items-center justify-content-between">
-                <h6 className="text-lg fw-semibold mb-0">Medical Details</h6>
+          {/* PROFESSIONAL INFORMATION */}
+          <Card title="Professional Information">
+            <div className="row gy-3">
+              <div className="col-xxl-3 col-xl-4 col-sm-6">
+                <Field label="Designation" required error={errors.designation}>
+                  {sel('designation', 'Select Designation', [
+                    'PRT (Primary Teacher)','TGT (Trained Graduate Teacher)',
+                    'PGT (Post Graduate Teacher)','Lecturer','Assistant Professor',
+                    'Associate Professor','Professor','HOD','Principal','Vice Principal',
+                  ])}
+                </Field>
               </div>
-              <div className="card-body p-20">
-                <div className="row gy-3">
-                  <div className="col-xxl-3 col-xl-4 col-sm-6">
-                    <div>
-                      <label htmlFor="bloodGroup" className="text-sm fw-semibold text-primary-light d-inline-block mb-8">
-                        Blood Group
-                      </label>
-                      <select
-                        id="bloodGroup"
-                        className="form-control form-select"
-                        value={formData.bloodGroup}
-                        onChange={handleChange}
-                      >
-                        <option value="" disabled>Select blood group</option>
-                        <option value="A+">A+</option>
-                        <option value="AB+">AB+</option>
-                        <option value="A-">A-</option>
-                        <option value="AB-">AB-</option>
-                      </select>
-                    </div>
-                  </div>
-                  <div className="col-xxl-3 col-xl-4 col-sm-6">
-                    <div>
-                      <label htmlFor="height" className="text-sm fw-semibold text-primary-light d-inline-block mb-8">
-                        Height
-                      </label>
-                      <input
-                        type="text"
-                        className="form-control"
-                        id="height"
-                        placeholder="Enter height"
-                        value={formData.height}
-                        onChange={handleChange}
-                      />
-                    </div>
-                  </div>
-                  <div className="col-xxl-3 col-xl-4 col-sm-6">
-                    <div>
-                      <label htmlFor="weight" className="text-sm fw-semibold text-primary-light d-inline-block mb-8">
-                        Weight
-                      </label>
-                      <input
-                        type="text"
-                        className="form-control"
-                        id="weight"
-                        placeholder="Enter Weight"
-                        value={formData.weight}
-                        onChange={handleChange}
-                      />
-                    </div>
-                  </div>
-                </div>
+              <div className="col-xxl-3 col-xl-4 col-sm-6">
+                <Field label="Department" required error={errors.department}>
+                  {sel('department', 'Select Department', [
+                    'Science','Mathematics','English','Hindi','Social Science',
+                    'Commerce','Arts','Physical Education','Computer Science',
+                    'Sanskrit','Music','Fine Arts','Other',
+                  ])}
+                </Field>
+              </div>
+              <div className="col-xxl-3 col-xl-4 col-sm-6">
+                <Field label="Subjects Taught" error={errors.subjectsTaught}>
+                  <input
+                    type="text" id="subjectsTaught"
+                    className="form-control"
+                    placeholder="e.g. Physics, Chemistry (comma separated)"
+                    value={formData.subjectsTaught} onChange={hc}
+                  />
+                </Field>
+              </div>
+              <div className="col-xxl-3 col-xl-4 col-sm-6">
+                <Field label="Classes Assigned">
+                  <input
+                    type="text" id="classesAssigned"
+                    className="form-control"
+                    placeholder="e.g. Class IX, Class X (comma separated)"
+                    value={formData.classesAssigned} onChange={hc}
+                  />
+                </Field>
+              </div>
+              <div className="col-xxl-3 col-xl-4 col-sm-6">
+                <Field label="Qualification" required error={errors.qualification}>
+                  {sel('qualification', 'Select Qualification', [
+                    'B.A','B.Sc','B.Com','B.Ed','B.Tech',
+                    'M.A','M.Sc','M.Com','M.Ed','M.Tech',
+                    'Ph.D','D.El.Ed','NTT','B.P.Ed','Other',
+                  ])}
+                </Field>
+              </div>
+              <div className="col-xxl-3 col-xl-4 col-sm-6">
+                <Field label="Total Experience" required error={errors.experience}>
+                  {inp('experience', 'e.g. 5 years')}
+                </Field>
+              </div>
+              <div className="col-xxl-3 col-xl-4 col-sm-6">
+                <Field label="Contract Type">
+                  {sel('contractType', 'Select', ['Regular','Contractual','Guest','Part-Time'])}
+                </Field>
+              </div>
+              <div className="col-xxl-3 col-xl-4 col-sm-6">
+                <Field label="Join Date" required error={errors.joinDate}>
+                  {inp('joinDate', '', 'date')}
+                </Field>
+              </div>
+              <div className="col-xxl-3 col-xl-4 col-sm-6">
+                <Field label="Work Location">
+                  {inp('workLocation', 'e.g. Main Campus, Branch')}
+                </Field>
               </div>
             </div>
-          </div>
+          </Card>
 
-          {/* Bank Details Card */}
-          <div className="col-lg-12">
-            <div className="shadow-1 radius-12 bg-base h-100 overflow-hidden">
-              <div className="card-header border-bottom bg-base py-16 px-24 d-flex align-items-center justify-content-between">
-                <h6 className="text-lg fw-semibold mb-0">Bank Details</h6>
+          {/* CONTACT INFORMATION */}
+          <Card title="Contact Information">
+            <div className="row gy-3">
+              <div className="col-xxl-3 col-xl-4 col-sm-6">
+                <Field label="Mobile Number" required error={errors.phoneNumber}>
+                  {inp('phoneNumber', '10-digit mobile number', 'tel')}
+                </Field>
               </div>
-              <div className="card-body p-20">
-                <div className="row gy-3">
-                  <div className="col-xxl-3 col-xl-4 col-sm-6">
-                    <div>
-                      <label htmlFor="bankAccountNumber" className="text-sm fw-semibold text-primary-light d-inline-block mb-8">
-                        Bank Account Number
-                      </label>
-                      <input
-                        type="text"
-                        className="form-control"
-                        id="bankAccountNumber"
-                        placeholder="Enter bank account number"
-                        value={formData.bankAccountNumber}
-                        onChange={handleChange}
-                      />
-                    </div>
-                  </div>
-                  <div className="col-xxl-3 col-xl-4 col-sm-6">
-                    <div>
-                      <label htmlFor="bankName" className="text-sm fw-semibold text-primary-light d-inline-block mb-8">
-                        Bank Name
-                      </label>
-                      <input
-                        type="text"
-                        className="form-control"
-                        id="bankName"
-                        placeholder="Enter bank name"
-                        value={formData.bankName}
-                        onChange={handleChange}
-                      />
-                    </div>
-                  </div>
-                  <div className="col-xxl-3 col-xl-4 col-sm-6">
-                    <div>
-                      <label htmlFor="ifscCode" className="text-sm fw-semibold text-primary-light d-inline-block mb-8">
-                        IFSC Code
-                      </label>
-                      <input
-                        type="text"
-                        className="form-control"
-                        id="ifscCode"
-                        placeholder="Enter IFSC Code"
-                        value={formData.ifscCode}
-                        onChange={handleChange}
-                      />
-                    </div>
-                  </div>
-                  <div className="col-xxl-3 col-xl-4 col-sm-6">
-                    <div>
-                      <label htmlFor="nationalId" className="text-sm fw-semibold text-primary-light d-inline-block mb-8">
-                        National Identification Number
-                      </label>
-                      <input
-                        type="text"
-                        className="form-control"
-                        id="nationalId"
-                        placeholder="Enter national identification number"
-                        value={formData.nationalId}
-                        onChange={handleChange}
-                      />
-                    </div>
-                  </div>
-                </div>
+              <div className="col-xxl-3 col-xl-4 col-sm-6">
+                <Field label="Alternate Mobile" error={errors.alternatePhone}>
+                  {inp('alternatePhone', '10-digit number', 'tel')}
+                </Field>
+              </div>
+              <div className="col-xxl-3 col-xl-4 col-sm-6">
+                <Field label="Email" required error={errors.email}>
+                  {inp('email', 'teacher@email.com', 'email')}
+                </Field>
               </div>
             </div>
-          </div>
+          </Card>
 
-          {/* Upload Documents Card */}
-          <div className="col-xxl-12">
-            <div className="shadow-1 radius-12 bg-base h-100 overflow-hidden">
-              <div className="card-header border-bottom bg-base py-16 px-24 d-flex align-items-center justify-content-between">
-                <h6 className="text-lg fw-semibold mb-0">Upload Documents</h6>
+          {/* FAMILY INFORMATION */}
+          <Card title="Family Information">
+            <div className="row gy-3">
+              <div className="col-xxl-3 col-xl-4 col-sm-6">
+                <Field label="Father's Name">
+                  {inp('fathersName', "Enter father's name")}
+                </Field>
               </div>
-              <div className="card-body p-20">
-                <div className="row gy-3">
-                  <div className="col-sm-6">
-                    <div>
-                      <label htmlFor="docName" className="text-sm fw-semibold text-primary-light d-inline-block mb-8">
-                        Doc Name
-                      </label>
-                      <input
-                        type="text"
-                        className="form-control"
-                        id="docName"
-                        placeholder="Enter Doc Name"
-                        value={formData.docName}
-                        onChange={handleChange}
-                      />
-                    </div>
-                  </div>
-                  <div className="col-sm-6">
-                    <div>
-                      <label className="text-sm fw-semibold text-primary-light d-inline-block mb-8">
-                        Upload File
-                      </label>
-                      <div className="drop-zone height-44-px p-4 d-flex justify-content-center align-items-center text-center fw-medium text-md cursor-pointer border border-neutral-400 radius-8 border-dashed bg-hover-neutral-200">
-                        <span className="drop-zone__prompt">Drag & drop a file here or click</span>
-                        <input
-                          type="file"
-                          id="documentFile"
-                          className="drop-zone__input"
-                          onChange={handleChange}
-                        />
-                      </div>
-                    </div>
-                  </div>
-                </div>
+              <div className="col-xxl-3 col-xl-4 col-sm-6">
+                <Field label="Mother's Name">
+                  {inp('mothersName', "Enter mother's name")}
+                </Field>
+              </div>
+              <div className="col-xxl-3 col-xl-4 col-sm-6">
+                <Field label="Spouse Name">
+                  {inp('spouseName', 'Enter spouse name (if married)')}
+                </Field>
+              </div>
+
+              <SectionTitle title="Emergency Contact" />
+              <div className="col-xxl-3 col-xl-4 col-sm-6">
+                <Field label="Contact Name">
+                  {inp('emergencyContactName', 'Enter name')}
+                </Field>
+              </div>
+              <div className="col-xxl-3 col-xl-4 col-sm-6">
+                <Field label="Contact Mobile" error={errors.emergencyContactPhone}>
+                  {inp('emergencyContactPhone', '10-digit number', 'tel')}
+                </Field>
+              </div>
+              <div className="col-xxl-3 col-xl-4 col-sm-6">
+                <Field label="Relation">
+                  {inp('emergencyContactRelation', 'e.g. Spouse, Father, Sibling')}
+                </Field>
               </div>
             </div>
-          </div>
+          </Card>
 
-          {/* Previous School Details */}
-          <div className="col-xxl-6">
-            <div className="shadow-1 radius-12 bg-base h-100 overflow-hidden">
-              <div className="card-header border-bottom bg-base py-16 px-24 d-flex align-items-center justify-content-between">
-                <h6 className="text-lg fw-semibold mb-0">Previous School Details</h6>
+          {/* MEDICAL */}
+          <HalfCard title="Medical Details">
+            <div className="row gy-3">
+              <div className="col-sm-6">
+                <Field label="Blood Group">
+                  {sel('bloodGroup', 'Select', ['A+','A-','B+','B-','AB+','AB-','O+','O-'])}
+                </Field>
               </div>
-              <div className="card-body p-20">
-                <div className="row gy-3">
-                  <div className="col-sm-6">
-                    <div>
-                      <label htmlFor="previousSchoolName" className="text-sm fw-semibold text-primary-light d-inline-block mb-8">
-                        School Name
-                      </label>
-                      <input
-                        type="text"
-                        className="form-control"
-                        id="previousSchoolName"
-                        placeholder="Enter School Name"
-                        value={formData.previousSchoolName}
-                        onChange={handleChange}
-                      />
-                    </div>
-                  </div>
-                  <div className="col-sm-6">
-                    <div>
-                      <label htmlFor="previousSchoolAddress" className="text-sm fw-semibold text-primary-light d-inline-block mb-8">
-                        Address
-                      </label>
-                      <input
-                        type="text"
-                        className="form-control"
-                        id="previousSchoolAddress"
-                        placeholder="Enter Address"
-                        value={formData.previousSchoolAddress}
-                        onChange={handleChange}
-                      />
-                    </div>
-                  </div>
-                </div>
+              <div className="col-sm-6">
+                <Field label="Known Medical Condition">
+                  {inp('medicalCondition', 'e.g. Diabetes, None')}
+                </Field>
               </div>
             </div>
-          </div>
+          </HalfCard>
 
-          {/* Address */}
-          <div className="col-xxl-6">
-            <div className="shadow-1 radius-12 bg-base h-100 overflow-hidden">
-              <div className="card-header border-bottom bg-base py-16 px-24 d-flex align-items-center justify-content-between">
-                <h6 className="text-lg fw-semibold mb-0">Address</h6>
+          {/* ADDRESS */}
+          <HalfCard title="Address Details">
+            <div className="row gy-3">
+              <div className="col-12">
+                <Field label="Current Address" required error={errors.currentAddress}>
+                  <textarea
+                    id="currentAddress" rows={3}
+                    className={`form-control ${errors.currentAddress ? 'border-danger-600' : ''}`}
+                    placeholder="House No., Street, Village/City, District, State, PIN"
+                    value={formData.currentAddress} onChange={hc}
+                  />
+                </Field>
               </div>
-              <div className="card-body p-20">
-                <div className="row gy-3">
-                  <div className="col-sm-6">
-                    <div>
-                      <label htmlFor="currentAddress" className="text-sm fw-semibold text-primary-light d-inline-block mb-8">
-                        Current Address
-                      </label>
-                      <input
-                        type="text"
-                        className="form-control"
-                        id="currentAddress"
-                        placeholder="Enter Current Address"
-                        value={formData.currentAddress}
-                        onChange={handleChange}
-                      />
-                    </div>
-                  </div>
-                  <div className="col-sm-6">
-                    <div>
-                      <label htmlFor="permanentAddress" className="text-sm fw-semibold text-primary-light d-inline-block mb-8">
-                        Permanent Address
-                      </label>
-                      <input
-                        type="text"
-                        className="form-control"
-                        id="permanentAddress"
-                        placeholder="Enter Permanent Address"
-                        value={formData.permanentAddress}
-                        onChange={handleChange}
-                      />
-                    </div>
-                  </div>
-                </div>
+              <div className="col-12">
+                <Field label="Permanent Address">
+                  <textarea
+                    id="permanentAddress" rows={3} className="form-control"
+                    placeholder="Same as current if not different"
+                    value={formData.permanentAddress} onChange={hc}
+                  />
+                </Field>
               </div>
             </div>
-          </div>
+          </HalfCard>
 
-          {/* Teacher Details (textarea) */}
-          <div className="col-xl-12">
-            <div className="shadow-1 radius-12 bg-base h-100 overflow-hidden">
-              <div className="card-header border-bottom bg-base py-16 px-24 d-flex align-items-center justify-content-between">
-                <h6 className="text-lg fw-semibold mb-0">Teacher Details</h6>
+          {/* BANK DETAILS */}
+          <Card title="Bank Details (For Salary)">
+            <div className="row gy-3">
+              <div className="col-xxl-3 col-xl-4 col-sm-6">
+                <Field label="Account Number">
+                  {inp('bankAccountNumber', 'Enter bank account number')}
+                </Field>
               </div>
-              <div className="card-body p-20">
-                <div className="row gy-3">
-                  <div className="col-sm-12">
-                    <div>
-                      <label htmlFor="teacherDetails" className="text-sm fw-semibold text-primary-light d-inline-block mb-8">
-                        Teacher Details
-                      </label>
-                      <textarea
-                        id="teacherDetails"
-                        className="form-control"
-                        placeholder="Enter details"
-                        rows="4"
-                        value={formData.teacherDetails}
-                        onChange={handleChange}
-                      ></textarea>
-                    </div>
-                  </div>
-                </div>
+              <div className="col-xxl-3 col-xl-4 col-sm-6">
+                <Field label="Bank Name">
+                  {inp('bankName', 'e.g. SBI, HDFC, Canara')}
+                </Field>
+              </div>
+              <div className="col-xxl-3 col-xl-4 col-sm-6">
+                <Field label="IFSC Code">
+                  {inp('ifscCode', 'e.g. SBIN0001234')}
+                </Field>
+              </div>
+              <div className="col-xxl-3 col-xl-4 col-sm-6">
+                <Field label="PAN for Salary">
+                  {inp('panForSalary', 'e.g. ABCDE1234F')}
+                </Field>
               </div>
             </div>
-          </div>
+          </Card>
 
-          {/* Social Links */}
-          <div className="col-xl-12">
-            <div className="shadow-1 radius-12 bg-base h-100 overflow-hidden">
-              <div className="card-header border-bottom bg-base py-16 px-24 d-flex align-items-center justify-content-between">
-                <h6 className="text-lg fw-semibold mb-0">Social Links</h6>
+          {/* PREVIOUS EMPLOYMENT */}
+          <Card title="Previous Employment Details">
+            <div className="row gy-3">
+              <div className="col-xxl-3 col-xl-4 col-sm-6">
+                <Field label="Previous Institute Name">
+                  {inp('prevInstituteName', 'Enter school / college name')}
+                </Field>
               </div>
-              <div className="card-body p-20">
-                <div className="row gy-3">
-                  <div className="col-xxl-3 col-xl-4 col-sm-6">
-                    <div>
-                      <label htmlFor="facebookLink" className="text-sm fw-semibold text-primary-light d-inline-block mb-8">
-                        Facebook
-                      </label>
-                      <input
-                        type="text"
-                        id="facebookLink"
-                        className="form-control"
-                        placeholder="Enter your facebook link"
-                        value={formData.facebookLink}
-                        onChange={handleChange}
-                      />
-                    </div>
-                  </div>
-                  <div className="col-xxl-3 col-xl-4 col-sm-6">
-                    <div>
-                      <label htmlFor="linkedInLink" className="text-sm fw-semibold text-primary-light d-inline-block mb-8">
-                        LinkedIn
-                      </label>
-                      <input
-                        type="text"
-                        id="linkedInLink"
-                        className="form-control"
-                        placeholder="Enter your LinkedIn link"
-                        value={formData.linkedInLink}
-                        onChange={handleChange}
-                      />
-                    </div>
-                  </div>
-                  <div className="col-xxl-3 col-xl-4 col-sm-6">
-                    <div>
-                      <label htmlFor="instagramLink" className="text-sm fw-semibold text-primary-light d-inline-block mb-8">
-                        Instagram
-                      </label>
-                      <input
-                        type="text"
-                        id="instagramLink"
-                        className="form-control"
-                        placeholder="Enter your Instagram link"
-                        value={formData.instagramLink}
-                        onChange={handleChange}
-                      />
-                    </div>
-                  </div>
-                  <div className="col-xxl-3 col-xl-4 col-sm-6">
-                    <div>
-                      <label htmlFor="youtubeLink" className="text-sm fw-semibold text-primary-light d-inline-block mb-8">
-                        YouTube
-                      </label>
-                      <input
-                        type="text"
-                        id="youtubeLink"
-                        className="form-control"
-                        placeholder="Enter your YouTube link"
-                        value={formData.youtubeLink}
-                        onChange={handleChange}
-                      />
-                    </div>
-                  </div>
-                </div>
+              <div className="col-xxl-3 col-xl-4 col-sm-6">
+                <Field label="Institute Address">
+                  {inp('prevInstituteAddress', 'Enter address')}
+                </Field>
+              </div>
+              <div className="col-xxl-3 col-xl-4 col-sm-6">
+                <Field label="Designation Held">
+                  {inp('prevDesignation', 'e.g. TGT Mathematics')}
+                </Field>
+              </div>
+              <div className="col-xxl-3 col-xl-4 col-sm-6">
+                <Field label="Years of Experience There">
+                  {inp('prevExperienceYears', 'e.g. 3 years')}
+                </Field>
               </div>
             </div>
-          </div>
+          </Card>
 
-          {/* Login Details */}
-          <div className="col-xl-12">
-            <div className="shadow-1 radius-12 bg-base h-100 overflow-hidden">
-              <div className="card-header border-bottom bg-base py-16 px-24 d-flex align-items-center justify-content-between">
-                <h6 className="text-lg fw-semibold mb-0">Login Details</h6>
+          {/* REMARKS */}
+          <Card title="Additional Remarks">
+            <Field label="Remarks / Notes">
+              <textarea
+                id="remarks" rows={3} className="form-control"
+                placeholder="Any additional information, achievements, special skills..."
+                value={formData.remarks} onChange={hc}
+              />
+            </Field>
+          </Card>
+
+          {/* LOGIN DETAILS  */}
+          <Card title="Teacher Portal Login">
+            <div className="row gy-3">
+              <div className="col-sm-6">
+                <Field label="Login Email" required error={errors.loginEmail}>
+                  {inp('loginEmail', 'teacher@school.com', 'email')}
+                </Field>
               </div>
-              <div className="card-body p-20">
-                <div className="row gy-3">
-                  <div className="col-sm-6">
-                    <div>
-                      <label htmlFor="loginEmail" className="text-sm fw-semibold text-primary-light d-inline-block mb-8">
-                        Email <span className="text-danger-600">*</span>
-                      </label>
-                      <input
-                        type="email"
-                        className="form-control"
-                        id="loginEmail"
-                        placeholder="Enter Email"
-                        value={formData.loginEmail}
-                        onChange={handleChange}
-                      />
-                    </div>
+              <div className="col-sm-6">
+                <Field label="Password" required error={errors.password}>
+                  <div className="position-relative">
+                    <input
+                      type={showPwd ? 'text' : 'password'} id="password"
+                      className={`form-control ${errors.password ? 'border-danger-600' : ''}`}
+                      placeholder="Min. 6 characters"
+                      value={formData.password} onChange={hc}
+                    />
+                    <button
+                      type="button"
+                      className="btn p-0 border-0 bg-transparent position-absolute end-0 top-50 translate-middle-y me-16 text-secondary-light"
+                      onClick={() => setShowPwd((p) => !p)}
+                      aria-label="Toggle password"
+                    >
+                      <i className={`ri-${showPwd ? 'eye-off' : 'eye'}-line`} style={{ fontSize: 18 }} />
+                    </button>
                   </div>
-                  <div className="col-sm-6">
-                    <div>
-                      <label htmlFor="password" className="text-sm fw-semibold text-primary-light d-inline-block mb-8">
-                        Password <span className="text-danger-600">*</span>
-                      </label>
-                      <div className="position-relative">
-                        <input
-                          type={showPassword ? 'text' : 'password'}
-                          id="password"
-                          className="form-control"
-                          placeholder="Enter your password"
-                          value={formData.password}
-                          onChange={handleChange}
-                        />
-                        <span
-                          className={`toggle-password ${showPassword ? 'ri-eye-off-line' : 'ri-eye-line'} cursor-pointer position-absolute end-0 top-50 translate-middle-y me-16 text-secondary-light`}
-                          onClick={() => setShowPassword(!showPassword)}
-                        ></span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
+                </Field>
               </div>
             </div>
-          </div>
+          </Card>
 
-          {/* Form Buttons */}
+          {/* ACTIONS */}
           <div className="col-12">
             <div className="d-flex align-items-center justify-content-center gap-3 mt-8">
               <button
-                type="button"
+                type="button" onClick={handleReset}
                 className="border border-danger-600 bg-hover-danger-200 text-danger-600 text-md px-50 py-11 radius-8"
-                onClick={handleReset}
+                style={{ background: 'none', cursor: 'pointer' }}
               >
                 Reset
               </button>
               <button
-                type="submit"
+                type="submit" disabled={loading}
                 className="btn btn-primary-600 border border-primary-600 text-md px-28 py-12 radius-8"
+                style={{ minWidth: 160 }}
               >
-                Save Changes
+                {loading
+                  ? <><span className="spinner-border spinner-border-sm me-2" />Saving…</>
+                  : 'Save Teacher'
+                }
               </button>
             </div>
           </div>
+
         </div>
       </form>
     </div>

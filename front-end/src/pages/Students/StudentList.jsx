@@ -1,73 +1,119 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
+import { useAuth } from '../../context/AuthContext';
 
-// Sample student data (extracted from the HTML)
-const initialStudents = [
-  { id: 1, admissionNo: 'AD52365', name: 'Kathryn Murphy', rollNo: 12, image: 'avatar-img1.png', class: '1', section: 'A', dob: '05 May 2012', gender: 'Male', mobile: '209.555.0104', category: 'General', status: 'Active' },
-  { id: 2, admissionNo: 'AD52365', name: 'Floyd Miles', rollNo: 1, image: 'avatar-img2.png', class: '2', section: 'B', dob: '05 May 2012', gender: 'Female', mobile: '209.555.0104', category: 'Special', status: 'Inactive' },
-  { id: 3, admissionNo: 'AD52367', name: 'Cody Fisher', rollNo: 7, image: 'avatar-img3.png', class: '3', section: 'A', dob: '12 Feb 2013', gender: 'Male', mobile: '207.445.9821', category: 'OBC', status: 'Active' },
-  { id: 4, admissionNo: 'AD52368', name: 'Jane Cooper', rollNo: 8, image: 'avatar-img4.png', class: '4', section: 'C', dob: '17 Mar 2014', gender: 'Female', mobile: '204.658.4421', category: 'Special', status: 'Inactive' },
-  { id: 5, admissionNo: 'AD52369', name: 'Esther Howard', rollNo: 15, image: 'avatar-img5.png', class: '5', section: 'B', dob: '25 Jul 2013', gender: 'Female', mobile: '209.875.9987', category: 'General', status: 'Active' },
-  { id: 6, admissionNo: 'AD52370', name: 'Albert Flores', rollNo: 3, image: 'avatar-img6.png', class: '6', section: 'A', dob: '08 Dec 2011', gender: 'Male', mobile: '208.324.1110', category: 'OBC', status: 'Inactive' },
-  { id: 7, admissionNo: 'AD52371', name: 'Jenny Wilson', rollNo: 9, image: 'avatar-img7.png', class: '7', section: 'C', dob: '19 Sep 2010', gender: 'Female', mobile: '206.211.4567', category: 'General', status: 'Active' },
-  { id: 8, admissionNo: 'AD52367', name: 'Jane Cooper', rollNo: 5, image: 'avatar-img3.png', class: '3', section: 'A', dob: '12 Jan 2013', gender: 'Female', mobile: '202.444.0089', category: 'OBC', status: 'Active' },
-  { id: 9, admissionNo: 'AD52368', name: 'Cameron Williamson', rollNo: 23, image: 'avatar-img4.png', class: '4', section: 'C', dob: '08 Jul 2011', gender: 'Male', mobile: '203.111.0456', category: 'SC', status: 'Inactive' },
-  { id: 10, admissionNo: 'AD52369', name: 'Theresa Webb', rollNo: 10, image: 'avatar-img5.png', class: '5', section: 'A', dob: '18 Nov 2010', gender: 'Female', mobile: '205.777.0190', category: 'General', status: 'Active' },
-  { id: 11, admissionNo: 'AD52370', name: 'Marvin McKinney', rollNo: 7, image: 'avatar-img6.png', class: '6', section: 'B', dob: '21 Mar 2011', gender: 'Male', mobile: '209.660.0912', category: 'General', status: 'Active' },
-  { id: 12, admissionNo: 'AD52371', name: 'Courtney Henry', rollNo: 15, image: 'avatar-img7.png', class: '7', section: 'A', dob: '10 Feb 2009', gender: 'Female', mobile: '204.120.0023', category: 'OBC', status: 'Inactive' },
-];
+/* Toast  */
+const useToast = () => {
+  const [toasts, setToasts] = useState([]);
+  const add = (message, type = 'success') => {
+    const id = Date.now();
+    setToasts((p) => [...p, { id, message, type }]);
+    setTimeout(() => setToasts((p) => p.filter((t) => t.id !== id)), 4000);
+  };
+  return { toasts, success: (m) => add(m, 'success'), error: (m) => add(m, 'error') };
+};
 
-const StudentList = () => {
-  // ---------- Filter state ----------
-  const [filters, setFilters] = useState({
-    class: '',
-    section: '',
-    gender: '',
-    status: '',
+const Toast = ({ toasts }) => (
+  <div style={{ position: 'fixed', top: 20, right: 20, zIndex: 9999, display: 'flex', flexDirection: 'column', gap: 10 }}>
+    {toasts.map((t) => (
+      <div key={t.id} style={{
+        display: 'flex', alignItems: 'center', gap: 10,
+        padding: '12px 18px', borderRadius: 10, minWidth: 280, maxWidth: 380,
+        background: t.type === 'success' ? '#16a34a' : '#dc2626',
+        color: '#fff', fontWeight: 600, fontSize: 14,
+        boxShadow: '0 4px 20px rgba(0,0,0,0.18)',
+        animation: 'slideIn .3s ease',
+      }}>
+        <span style={{ fontSize: 18 }}>{t.type === 'success' ? '✅' : '❌'}</span>
+        {t.message}
+      </div>
+    ))}
+    <style>{`@keyframes slideIn{from{opacity:0;transform:translateX(60px)}to{opacity:1;transform:translateX(0)}}`}</style>
+  </div>
+);
+
+/*  Helper */
+const formatDate = (dateStr) => {
+  if (!dateStr) return '—';
+  return new Date(dateStr).toLocaleDateString('en-IN', {
+    day: '2-digit', month: 'short', year: 'numeric',
   });
-  const [search, setSearch] = useState('');
+};
 
-  // ---------- Selection & delete modal ----------
+/* Main Component */
+const StudentList = () => {
+  const { token } = useAuth();
+  const { toasts, success, error } = useToast();
+
+  // ── Data ──
+  const [students, setStudents] = useState([]);
+  const [loading, setLoading]   = useState(true);
+  const [deleting, setDeleting] = useState(false);
+
+  // ── Filters ──
+  const [filters, setFilters] = useState({ class: '', section: '', gender: '', status: '' });
+  const [search, setSearch]   = useState('');
+
+  // ── Selection & modal ──
   const [selectedIds, setSelectedIds] = useState([]);
   const [deleteModal, setDeleteModal] = useState({ open: false, studentId: null, studentName: '' });
 
-  // ---------- Pagination ----------
+  // ── Pagination ──
   const [rowsPerPage, setRowsPerPage] = useState(10);
   const [currentPage, setCurrentPage] = useState(1);
 
-  // ---------- Filtered data ----------
+  /* Fetch all students for this school */
+  const fetchStudents = useCallback(async () => {
+    setLoading(true);
+    try {
+      const response = await fetch('/api/students', {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.message || 'Failed to fetch students.');
+      setStudents(data);
+    } catch (err) {
+      error(err.message);
+    } finally {
+      setLoading(false);
+    }
+  }, [token]);
+
+  useEffect(() => { fetchStudents(); }, [fetchStudents]);
+
+  /* Filter + search */
   const filteredStudents = useMemo(() => {
-    return initialStudents.filter((student) => {
-      // Search (name, admissionNo, mobile)
+    return students.filter((s) => {
       const matchesSearch =
         search === '' ||
-        student.name.toLowerCase().includes(search.toLowerCase()) ||
-        student.admissionNo.toLowerCase().includes(search.toLowerCase()) ||
-        student.mobile.includes(search);
+        s.fullName?.toLowerCase().includes(search.toLowerCase()) ||
+        s.admissionNo?.toLowerCase().includes(search.toLowerCase()) ||
+        s.phoneNumber?.includes(search);
 
-      // Filters
-      const matchesClass = filters.class === '' || student.class === filters.class;
-      const matchesSection = filters.section === '' || student.section === filters.section;
-      const matchesGender = filters.gender === '' || student.gender === filters.gender;
-      const matchesStatus = filters.status === '' || student.status === filters.status;
+      const matchesClass   = filters.class   === '' || s.classSection === filters.class;
+      const matchesSection = filters.section === '' || s.section      === filters.section;
+      const matchesGender  = filters.gender  === '' || s.gender       === filters.gender;
+      const matchesStatus  =
+        filters.status === '' ||
+        (filters.status === 'Active' ? s.isActive === true : s.isActive === false);
 
       return matchesSearch && matchesClass && matchesSection && matchesGender && matchesStatus;
     });
-  }, [filters, search]);
+  }, [students, filters, search]);
 
-  // Paginated data
+  /* Pagination */
+  const totalPages = Math.max(1, Math.ceil(filteredStudents.length / rowsPerPage));
+
   const paginatedStudents = useMemo(() => {
     const start = (currentPage - 1) * rowsPerPage;
     return filteredStudents.slice(start, start + rowsPerPage);
   }, [filteredStudents, currentPage, rowsPerPage]);
 
-  const totalPages = Math.ceil(filteredStudents.length / rowsPerPage);
-
-  // ---------- Handlers ----------
+  /* Handlers */
   const handleFilterChange = (e) => {
     const { id, value } = e.target;
     setFilters((prev) => ({ ...prev, [id]: value }));
-    setCurrentPage(1); // reset page on filter
+    setCurrentPage(1);
   };
 
   const resetFilters = () => {
@@ -76,65 +122,82 @@ const StudentList = () => {
     setCurrentPage(1);
   };
 
-  const handleSearch = (e) => {
-    setSearch(e.target.value);
-    setCurrentPage(1);
-  };
+  const handleSearch = (e) => { setSearch(e.target.value); setCurrentPage(1); };
 
   const handleSelectAll = (e) => {
-    if (e.target.checked) {
-      setSelectedIds(paginatedStudents.map((s) => s.id));
-    } else {
-      setSelectedIds([]);
-    }
+    setSelectedIds(e.target.checked ? paginatedStudents.map((s) => s._id) : []);
   };
 
   const handleSelectRow = (id) => {
-    setSelectedIds((prev) =>
-      prev.includes(id) ? prev.filter((i) => i !== id) : [...prev, id]
-    );
+    setSelectedIds((prev) => prev.includes(id) ? prev.filter((i) => i !== id) : [...prev, id]);
   };
 
-  const openDeleteModal = (student) => {
-    setDeleteModal({ open: true, studentId: student.id, studentName: student.name });
+  const openDeleteModal  = (s) => setDeleteModal({ open: true, studentId: s._id, studentName: s.fullName });
+  const closeDeleteModal = () => setDeleteModal({ open: false, studentId: null, studentName: '' });
+
+  /* Delete */
+  const confirmDelete = async () => {
+    setDeleting(true);
+    try {
+      const response = await fetch(`/api/students/${deleteModal.studentId}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.message || 'Failed to delete student.');
+      setStudents((prev) => prev.filter((s) => s._id !== deleteModal.studentId));
+      setSelectedIds((prev) => prev.filter((id) => id !== deleteModal.studentId));
+      success(`"${deleteModal.studentName}" deleted successfully.`);
+      closeDeleteModal();
+    } catch (err) {
+      error(err.message);
+    } finally {
+      setDeleting(false);
+    }
   };
 
-  const closeDeleteModal = () => {
-    setDeleteModal({ open: false, studentId: null, studentName: '' });
+  /* Toggle status */
+  const toggleStatus = async (student) => {
+    try {
+      const response = await fetch(`/api/students/${student._id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ isActive: !student.isActive }),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.message || 'Failed to update status.');
+      setStudents((prev) =>
+        prev.map((s) => s._id === student._id ? { ...s, isActive: !s.isActive } : s)
+      );
+      success(`Status updated for "${student.fullName}".`);
+    } catch (err) {
+      error(err.message);
+    }
   };
 
-  const confirmDelete = () => {
-    // Here you would call an API to delete
-    alert(`Delete student ${deleteModal.studentName} (ID: ${deleteModal.studentId})`);
-    closeDeleteModal();
-  };
-
-  // Page change
   const goToPage = (page) => {
     if (page >= 1 && page <= totalPages) setCurrentPage(page);
   };
 
-  // Export actions (placeholders)
-  const exportPDF = () => alert('Export as PDF');
-  const exportExcel = () => alert('Export as Excel');
-
+  /* Render */
   return (
     <div className="dashboard-main-body">
+      <Toast toasts={toasts} />
+
       {/* Breadcrumb */}
       <div className="breadcrumb d-flex flex-wrap align-items-center justify-content-between gap-3 mb-24">
         <div>
           <h1 className="fw-semibold mb-4 h6 text-primary-light">Student List</h1>
           <div>
-            <Link to="/" className="text-secondary-light hover-text-primary hover-underline">
-              Dashboard
-            </Link>
+            <Link to="/" className="text-secondary-light hover-text-primary hover-underline">Dashboard</Link>
             <span className="text-secondary-light"> / Student List</span>
           </div>
         </div>
         <Link to="/students/add" className="btn btn-primary-600 d-flex align-items-center gap-6">
-          <span className="d-flex text-md">
-            <i className="ri-add-large-line"></i>
-          </span>
+          <span className="d-flex text-md"><i className="ri-add-large-line"></i></span>
           Add Student
         </Link>
       </div>
@@ -143,41 +206,31 @@ const StudentList = () => {
       <div className="mt-24">
         <div className="card h-100">
           <div className="card-body p-0 dataTable-wrapper">
+
             {/* Toolbar */}
             <div className="d-flex align-items-center justify-content-between flex-wrap gap-16 px-20 py-12 border-bottom border-neutral-200">
               <div className="d-flex flex-wrap align-items-center gap-16">
+
                 {/* Export Dropdown */}
                 <div className="dropdown">
                   <button
                     type="button"
                     className="px-12 py-5-px border border-neutral-300 radius-8 d-flex align-items-center gap-20"
-                    data-bs-toggle="dropdown"
-                    aria-expanded="false"
+                    data-bs-toggle="dropdown" aria-expanded="false"
                   >
                     <span className="d-flex align-items-center gap-1 text-secondary-light text-sm">
-                      <i className="ri-file-upload-line text-md line-height-1"></i>
-                      Export
+                      <i className="ri-file-upload-line text-md line-height-1"></i> Export
                     </span>
-                    <span>
-                      <i className="ri-arrow-down-s-line"></i>
-                    </span>
+                    <i className="ri-arrow-down-s-line"></i>
                   </button>
                   <ul className="dropdown-menu p-12 border bg-base shadow">
                     <li>
-                      <button
-                        type="button"
-                        className="dropdown-item px-16 py-8 rounded text-secondary-light bg-hover-neutral-200 text-hover-neutral-900 d-flex align-items-center gap-10"
-                        onClick={exportPDF}
-                      >
+                      <button type="button" className="dropdown-item px-16 py-8 rounded text-secondary-light bg-hover-neutral-200 text-hover-neutral-900 d-flex align-items-center gap-10">
                         <i className="ri-file-3-line"></i> PDF
                       </button>
                     </li>
                     <li>
-                      <button
-                        type="button"
-                        className="dropdown-item px-16 py-8 rounded text-secondary-light bg-hover-neutral-200 text-hover-neutral-900 d-flex align-items-center gap-10"
-                        onClick={exportExcel}
-                      >
+                      <button type="button" className="dropdown-item px-16 py-8 rounded text-secondary-light bg-hover-neutral-200 text-hover-neutral-900 d-flex align-items-center gap-10">
                         <i className="ri-file-excel-line"></i> Excel
                       </button>
                     </li>
@@ -189,7 +242,7 @@ const StudentList = () => {
                   <input
                     type="text"
                     className="dt-input bg-transparent radius-4"
-                    placeholder="Search..."
+                    placeholder="Search name, admission no..."
                     value={search}
                     onChange={handleSearch}
                   />
@@ -201,13 +254,10 @@ const StudentList = () => {
                   <button
                     type="button"
                     className="px-12 py-5-px border border-neutral-300 radius-8 d-flex align-items-center gap-20"
-                    data-bs-toggle="dropdown"
-                    aria-expanded="false"
+                    data-bs-toggle="dropdown" aria-expanded="false"
                   >
                     <span className="d-flex align-items-center gap-1 text-secondary-light text-sm">Filter</span>
-                    <span>
-                      <i className="ri-arrow-down-s-line"></i>
-                    </span>
+                    <i className="ri-arrow-down-s-line"></i>
                   </button>
                   <div className="dropdown-menu border bg-base shadow dropdown-menu-lg p-0">
                     <div className="d-flex align-items-center justify-content-between border-bottom py-8 px-16">
@@ -216,86 +266,45 @@ const StudentList = () => {
                         <i className="ri-close-large-line"></i>
                       </button>
                     </div>
-
-                    <form
-                      className="p-16 d-grid grid-cols-2 gap-16"
-                      onSubmit={(e) => e.preventDefault()}
-                    >
+                    <form className="p-16 d-grid grid-cols-2 gap-16" onSubmit={(e) => e.preventDefault()}>
                       <div>
-                        <label htmlFor="class" className="text-sm fw-semibold text-primary-light d-inline-block mb-8">
-                          Class
-                        </label>
-                        <select
-                          id="class"
-                          className="form-control form-select"
-                          value={filters.class}
-                          onChange={handleFilterChange}
-                        >
-                          <option value="">Select Class</option>
-                          <option value="1">1</option>
-                          <option value="2">2</option>
-                          <option value="3">3</option>
-                          <option value="4">4</option>
-                          <option value="5">5</option>
-                          <option value="6">6</option>
-                          <option value="7">7</option>
+                        <label htmlFor="class" className="text-sm fw-semibold text-primary-light d-inline-block mb-8">Class</label>
+                        <select id="class" className="form-control form-select" value={filters.class} onChange={handleFilterChange}>
+                          <option value="">All Classes</option>
+                          {['Nursery','LKG','UKG','Class I','Class II','Class III','Class IV','Class V','Class VI','Class VII','Class VIII','Class IX','Class X','Class XI','Class XII'].map((c) => (
+                            <option key={c} value={c}>{c}</option>
+                          ))}
                         </select>
                       </div>
                       <div>
-                        <label htmlFor="section" className="text-sm fw-semibold text-primary-light d-inline-block mb-8">
-                          Section
-                        </label>
-                        <select
-                          id="section"
-                          className="form-control form-select"
-                          value={filters.section}
-                          onChange={handleFilterChange}
-                        >
-                          <option value="">Select Section</option>
-                          <option value="A">A</option>
-                          <option value="B">B</option>
-                          <option value="C">C</option>
+                        <label htmlFor="section" className="text-sm fw-semibold text-primary-light d-inline-block mb-8">Section</label>
+                        <select id="section" className="form-control form-select" value={filters.section} onChange={handleFilterChange}>
+                          <option value="">All Sections</option>
+                          {['A','B','C','D','E'].map((s) => <option key={s} value={s}>{s}</option>)}
                         </select>
                       </div>
                       <div>
-                        <label htmlFor="gender" className="text-sm fw-semibold text-primary-light d-inline-block mb-8">
-                          Gender
-                        </label>
-                        <select
-                          id="gender"
-                          className="form-control form-select"
-                          value={filters.gender}
-                          onChange={handleFilterChange}
-                        >
-                          <option value="">Select Gender</option>
+                        <label htmlFor="gender" className="text-sm fw-semibold text-primary-light d-inline-block mb-8">Gender</label>
+                        <select id="gender" className="form-control form-select" value={filters.gender} onChange={handleFilterChange}>
+                          <option value="">All</option>
                           <option value="Male">Male</option>
                           <option value="Female">Female</option>
+                          <option value="Other">Other</option>
                         </select>
                       </div>
                       <div>
-                        <label htmlFor="status" className="text-sm fw-semibold text-primary-light d-inline-block mb-8">
-                          Status
-                        </label>
-                        <select
-                          id="status"
-                          className="form-control form-select"
-                          value={filters.status}
-                          onChange={handleFilterChange}
-                        >
-                          <option value="">Select Status</option>
+                        <label htmlFor="status" className="text-sm fw-semibold text-primary-light d-inline-block mb-8">Status</label>
+                        <select id="status" className="form-control form-select" value={filters.status} onChange={handleFilterChange}>
+                          <option value="">All</option>
                           <option value="Active">Active</option>
                           <option value="Inactive">Inactive</option>
                         </select>
                       </div>
                       <div>
-                        <button type="reset" className="btn btn-danger-200 text-danger-600 w-100" onClick={resetFilters}>
-                          Reset
-                        </button>
+                        <button type="reset" className="btn btn-danger-200 text-danger-600 w-100" onClick={resetFilters}>Reset</button>
                       </div>
                       <div>
-                        <button type="submit" className="btn btn-primary-600 w-100">
-                          Apply
-                        </button>
+                        <button type="button" className="btn btn-primary-600 w-100" onClick={() => document.activeElement?.blur()}>Apply</button>
                       </div>
                     </form>
                   </div>
@@ -309,16 +318,9 @@ const StudentList = () => {
                   <select
                     className="dt-input form-control form-select"
                     value={rowsPerPage}
-                    onChange={(e) => {
-                      setRowsPerPage(Number(e.target.value));
-                      setCurrentPage(1);
-                    }}
+                    onChange={(e) => { setRowsPerPage(Number(e.target.value)); setCurrentPage(1); }}
                   >
-                    <option value="5">5</option>
-                    <option value="10">10</option>
-                    <option value="25">25</option>
-                    <option value="50">50</option>
-                    <option value="100">100</option>
+                    {[5, 10, 25, 50, 100].map((n) => <option key={n} value={n}>{n}</option>)}
                   </select>
                 </div>
               </div>
@@ -329,17 +331,6 @@ const StudentList = () => {
               <table className="table bordered-table mb-0 data-table">
                 <thead>
                   <tr>
-                    <th scope="col">
-                      <div className="form-check style-check d-flex align-items-center">
-                        <input
-                          className="form-check-input"
-                          type="checkbox"
-                          checked={paginatedStudents.length > 0 && selectedIds.length === paginatedStudents.length}
-                          onChange={handleSelectAll}
-                        />
-                        <label className="form-check-label"> S.L </label>
-                      </div>
-                    </th>
                     <th scope="col">Admission No</th>
                     <th scope="col">Name</th>
                     <th scope="col">Class</th>
@@ -352,81 +343,78 @@ const StudentList = () => {
                   </tr>
                 </thead>
                 <tbody>
-                  {paginatedStudents.map((student, index) => {
-                    const isSelected = selectedIds.includes(student.id);
+
+                  {/* Loading skeleton */}
+                  {loading && Array.from({ length: 6 }).map((_, i) => (
+                    <tr key={`sk-${i}`}>
+                      {Array.from({ length: 10 }).map((_, j) => (
+                        <td key={j}>
+                          <div style={{
+                            height: 14, borderRadius: 4,
+                            background: 'linear-gradient(90deg,#f0f0f0 25%,#e0e0e0 50%,#f0f0f0 75%)',
+                            backgroundSize: '200% 100%',
+                            animation: 'shimmer 1.5s infinite',
+                          }} />
+                        </td>
+                      ))}
+                    </tr>
+                  ))}
+
+                  {/* Data rows */}
+                  {!loading && paginatedStudents.map((student, index) => {
+                    const isSelected = selectedIds.includes(student._id);
                     const sl = (currentPage - 1) * rowsPerPage + index + 1;
                     return (
-                      <tr key={student.id}>
-                        <td>
-                          <div className="form-check style-check d-flex align-items-center">
-                            <input
-                              className="form-check-input"
-                              type="checkbox"
-                              checked={isSelected}
-                              onChange={() => handleSelectRow(student.id)}
-                            />
-                            <label className="form-check-label">{sl.toString().padStart(2, '0')}</label>
-                          </div>
-                        </td>
-                        <td>
-                          <span className="text-primary-600">{student.admissionNo}</span>
-                        </td>
+                      <tr key={student._id}>
+                        <td><span className="text-primary-600">{student.admissionNo}</span></td>
                         <td>
                           <div className="d-flex align-items-center">
-                            <img
-                              src={`/../src/assets/images/thumbs/${student.image}`}
-                              alt={student.name}
-                              className="flex-shrink-0 me-12 radius-8"
-                              style={{ width: '40px', height: '40px', objectFit: 'cover' }}
-                            />
+                            {/* Initials avatar */}
+                            <div
+                              className="flex-shrink-0 me-12 radius-8 d-flex align-items-center justify-content-center fw-bold"
+                              style={{ width: 40, height: 40, borderRadius: 8, background: '#e0e7ff', color: '#4f46e5', fontSize: 16 }}
+                            >
+                              {student.fullName?.charAt(0).toUpperCase()}
+                            </div>
                             <div>
-                              <h6 className="text-md mb-0 fw-medium flex-grow-1">{student.name}</h6>
-                              <span>
-                                Roll No: <span className="fw-semibold">{student.rollNo}</span>
+                              <h6 className="text-md mb-0 fw-medium">{student.fullName}</h6>
+                              <span className="text-sm text-secondary-light">
+                                Roll No: <span className="fw-semibold">{student.rollNumber || '—'}</span>
                               </span>
                             </div>
                           </div>
                         </td>
-                        <td>{`Class ${student.class} (${student.section})`}</td>
-                        <td>{student.dob}</td>
+                        <td>{`${student.classSection} (${student.section})`}</td>
+                        <td>{formatDate(student.dateOfBirth)}</td>
                         <td>{student.gender}</td>
-                        <td>{student.mobile}</td>
+                        <td>{student.phoneNumber}</td>
                         <td>{student.category}</td>
                         <td>
-                          <span
-                            className={`${
-                              student.status === 'Active'
-                                ? 'bg-success-100 text-success-600'
-                                : 'bg-danger-100 text-danger-600'
-                            } px-24 py-4 radius-4 fw-medium text-sm`}
-                          >
-                            {student.status}
+                          <span className={`${student.isActive ? 'bg-success-100 text-success-600' : 'bg-danger-100 text-danger-600'} px-24 py-4 radius-4 fw-medium text-sm`}>
+                            {student.isActive ? 'Active' : 'Inactive'}
                           </span>
                         </td>
                         <td>
                           <div className="btn-group">
                             <button
-                              type="button"
-                              className="text-primary-light text-xl"
-                              data-bs-toggle="dropdown"
-                              data-bs-display="static"
-                              aria-expanded="false"
+                              type="button" className="text-primary-light text-xl"
+                              data-bs-toggle="dropdown" data-bs-display="static" aria-expanded="false"
                             >
                               <iconify-icon icon="tabler:dots-vertical"></iconify-icon>
                             </button>
                             <ul className="dropdown-menu dropdown-menu-lg-end border p-12">
                               <li>
                                 <Link
-                                  to="/teachers" // adjust as needed
+                                  to={`/students/${student._id}`}
                                   className="dropdown-item rounded text-secondary-light bg-hover-neutral-200 text-hover-neutral-900 d-flex align-items-center gap-2 py-6"
                                 >
-                                  <i className="ri-user-3-line"></i> View Teacher
+                                  <i className="ri-eye-line"></i> View
                                 </Link>
                               </li>
                               <li>
                                 <Link
-                                  to="/students/edit"
-                                  state={{ student }} // pass data if needed
+                                  to={`/students/edit/${student._id}`}
+                                  state={{ student }}
                                   className="dropdown-item rounded text-secondary-light bg-hover-neutral-200 text-hover-neutral-900 d-flex align-items-center gap-2 py-6"
                                 >
                                   <i className="ri-edit-2-line"></i> Edit
@@ -435,17 +423,10 @@ const StudentList = () => {
                               <li>
                                 <button
                                   className="dropdown-item rounded text-secondary-light bg-hover-neutral-200 text-hover-neutral-900 d-flex align-items-center gap-2 py-6"
-                                  onClick={() => alert('Collect Fees')}
+                                  onClick={() => toggleStatus(student)}
                                 >
-                                  <i className="ri-money-dollar-box-line"></i> Collect Fees
-                                </button>
-                              </li>
-                              <li>
-                                <button
-                                  className="dropdown-item rounded text-secondary-light bg-hover-neutral-200 text-hover-neutral-900 d-flex align-items-center gap-2 py-6"
-                                  onClick={() => alert('Inactive')}
-                                >
-                                  <i className="ri-error-warning-line"></i> Inactive
+                                  <i className={`ri-${student.isActive ? 'pause' : 'play'}-circle-line`}></i>
+                                  {student.isActive ? 'Set Inactive' : 'Set Active'}
                                 </button>
                               </li>
                               <li>
@@ -462,69 +443,110 @@ const StudentList = () => {
                       </tr>
                     );
                   })}
-                  {paginatedStudents.length === 0 && (
+
+                  {/* Empty state */}
+                  {!loading && paginatedStudents.length === 0 && (
                     <tr>
-                      <td colSpan="10" className="text-center py-20">
-                        No students found.
+                      <td colSpan="10" className="text-center py-40">
+                        <div style={{ fontSize: 48, marginBottom: 12 }}>🎓</div>
+                        <p className="text-secondary-light mb-0">No students found.</p>
+                        {(search || Object.values(filters).some(Boolean)) && (
+                          <button className="btn btn-sm btn-primary-600 mt-12" onClick={resetFilters}>
+                            Clear Filters
+                          </button>
+                        )}
                       </td>
                     </tr>
                   )}
                 </tbody>
               </table>
+              <style>{`
+                @keyframes shimmer {
+                  0%   { background-position: 200% 0; }
+                  100% { background-position: -200% 0; }
+                }
+              `}</style>
             </div>
 
-            {/* Simple Pagination */}
-            {filteredStudents.length > 0 && (
-              <div className="d-flex justify-content-end align-items-center gap-3 p-20 border-top">
-                <button
-                  className="btn btn-outline-secondary btn-sm"
-                  disabled={currentPage === 1}
-                  onClick={() => goToPage(currentPage - 1)}
-                >
-                  Previous
-                </button>
-                <span>
-                  Page {currentPage} of {totalPages}
+            {/* Pagination */}
+            {!loading && filteredStudents.length > 0 && (
+              <div className="d-flex justify-content-between align-items-center gap-3 px-20 py-16 border-top">
+                <span className="text-secondary-light text-sm">
+                  Showing {(currentPage - 1) * rowsPerPage + 1}–{Math.min(currentPage * rowsPerPage, filteredStudents.length)} of {filteredStudents.length} students
                 </span>
-                <button
-                  className="btn btn-outline-secondary btn-sm"
-                  disabled={currentPage === totalPages}
-                  onClick={() => goToPage(currentPage + 1)}
-                >
-                  Next
-                </button>
+                <div className="d-flex align-items-center gap-8">
+                  <button
+                    className="btn btn-outline-secondary btn-sm"
+                    disabled={currentPage === 1}
+                    onClick={() => goToPage(currentPage - 1)}
+                  >
+                    <i className="ri-arrow-left-s-line"></i> Previous
+                  </button>
+
+                  {Array.from({ length: totalPages }, (_, i) => i + 1)
+                    .filter((p) => p === 1 || p === totalPages || Math.abs(p - currentPage) <= 1)
+                    .reduce((acc, p, i, arr) => {
+                      if (i > 0 && p - arr[i - 1] > 1) acc.push('...');
+                      acc.push(p);
+                      return acc;
+                    }, [])
+                    .map((p, i) =>
+                      p === '...'
+                        ? <span key={`dot-${i}`} className="px-8 text-secondary-light">…</span>
+                        : <button
+                            key={p}
+                            className={`btn btn-sm ${currentPage === p ? 'btn-primary-600' : 'btn-outline-secondary'}`}
+                            onClick={() => goToPage(p)}
+                          >{p}</button>
+                    )
+                  }
+
+                  <button
+                    className="btn btn-outline-secondary btn-sm"
+                    disabled={currentPage === totalPages}
+                    onClick={() => goToPage(currentPage + 1)}
+                  >
+                    Next <i className="ri-arrow-right-s-line"></i>
+                  </button>
+                </div>
               </div>
             )}
           </div>
         </div>
       </div>
 
-      {/* Delete Modal (React controlled) */}
+      {/* Delete Modal */}
       {deleteModal.open && (
         <div className="modal fade show d-block" tabIndex="-1" style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}>
-          <div className="modal-dialog modal-sm modal-dialog modal-dialog-centered max-w-340-px">
+          <div className="modal-dialog modal-sm modal-dialog-centered max-w-340-px">
             <div className="modal-content radius-16 bg-base">
               <div className="modal-body pt-32 px-36 pb-24 text-center">
                 <span className="mb-16 fs-1 line-height-1 text-danger">
-                  <iconify-icon icon="fluent:delete-24-regular" className="menu-icon"></iconify-icon>
+                  <iconify-icon icon="fluent:delete-24-regular"></iconify-icon>
                 </span>
                 <h6 className="text-lg fw-semibold text-primary-light mb-0">
-                  Are you sure you want to delete {deleteModal.studentName}?
+                  Are you sure you want to delete <br />
+                  <span className="text-danger-600">"{deleteModal.studentName}"</span>?
                 </h6>
+                <p className="text-sm text-secondary-light mt-8 mb-0">This action cannot be undone.</p>
                 <div className="d-flex align-items-center justify-content-center gap-3 mt-24">
                   <button
                     type="button"
-                    className="flex-grow-1 border border-danger-600 bg-hover-danger-200 text-danger-600 text-md px-24 py-11 radius-8"
-                    onClick={closeDeleteModal}
+                    className="flex-grow-1 border border-neutral-400 bg-hover-neutral-200 text-secondary-light text-md px-24 py-11 radius-8"
+                    onClick={closeDeleteModal} disabled={deleting}
+                    style={{ background: 'none', cursor: 'pointer' }}
                   >
                     Cancel
                   </button>
                   <button
                     type="button"
-                    className="flex-grow-1 btn btn-primary-600 border border-primary-600 text-md px-16 py-12 radius-8"
-                    onClick={confirmDelete}
+                    className="flex-grow-1 btn btn-danger-600 border border-danger-600 text-md px-16 py-12 radius-8"
+                    onClick={confirmDelete} disabled={deleting}
                   >
-                    Yes, Delete
+                    {deleting
+                      ? <><span className="spinner-border spinner-border-sm me-2" />Deleting…</>
+                      : 'Yes, Delete'
+                    }
                   </button>
                 </div>
               </div>

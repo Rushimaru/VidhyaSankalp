@@ -2,6 +2,8 @@ import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 import { validateStudent } from "../../utils/validators";
+import DatePicker from "react-datepicker";
+import "react-datepicker/dist/react-datepicker.css";
 
 /* Toast */
 const useToast = () => {
@@ -347,7 +349,21 @@ const AddStudent = () => {
                   required
                   error={errors.dateOfBirth}
                 >
-                  {inp("dateOfBirth", "", "date")}
+                  <DatePicker
+                    selected={formData.dateOfBirth}
+                    onChange={(date) =>
+                      setFormData({ ...formData, dateOfBirth: date })
+                    }
+                    dateFormat="dd-MM-yyyy"
+                    placeholderText="DD-MM-YYYY"
+                    className={`form-control ${errors.dateOfBirth ? "border-danger-600" : ""}`}
+                    wrapperClassName="w-100"
+                    popperClassName="shadow-lg border-0"
+                    showMonthDropdown
+                    showYearDropdown
+                    dropdownMode="select"
+                    maxDate={new Date()}
+                  />
                 </Field>
               </div>
               <div className="col-xxl-3 col-xl-4 col-sm-6">

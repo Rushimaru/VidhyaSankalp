@@ -1,67 +1,120 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
-import ConfirmModal from '../../components/ConfirmModal';
+import { useAuth } from '../../context/AuthContext';
 
-// Sample teacher data (extracted from HTML)
-const initialTeachers = [
-  { id: 1, teacherId: 'AD52365', name: 'Marvin McKinney', image: 'teacher-avatar-img1.png', subject: 'Mathematics', class: '1 (A), 2(A), 3(A)', email: 'chinthaka@hotmail.com', phone: '209.555.0104', joinDate: '05 May 2012', status: 'Active' },
-  { id: 2, teacherId: 'AD52365', name: 'Ralph Edwards', image: 'teacher-avatar-img2.png', subject: 'Physics', class: '9 (A), 10 (B)', email: 'mobileip@mac.com', phone: '209.555.0104', joinDate: '05 May 2012', status: 'Inactive' },
-  { id: 3, teacherId: 'AD52367', name: 'Courtney Henry', image: 'teacher-avatar-img3.png', subject: 'Biology', class: '6 (A), 7 (B)', email: 'courtney@edu.com', phone: '209.555.0134', joinDate: '18 Jan 2014', status: 'Active' },
-  { id: 4, teacherId: 'AD52368', name: 'Eleanor Pena', image: 'teacher-avatar-img4.png', subject: 'Chemistry', class: '8 (B), 9 (A)', email: 'eleanor.pena@school.org', phone: '209.555.0189', joinDate: '22 Aug 2016', status: 'Inactive' },
-  { id: 5, teacherId: 'AD52369', name: 'Cody Fisher', image: 'teacher-avatar-img5.png', subject: 'English', class: '5 (A), 6 (A)', email: 'cody.fisher@school.com', phone: '209.555.0192', joinDate: '14 Mar 2015', status: 'Active' },
-  { id: 6, teacherId: 'AD52370', name: 'Devon Lane', image: 'teacher-avatar-img6.png', subject: 'Geography', class: '7 (C), 8 (A)', email: 'devon@edu.org', phone: '209.555.0119', joinDate: '09 Jul 2018', status: 'Active' },
-  { id: 7, teacherId: 'AD52371', name: 'Bessie Cooper', image: 'teacher-avatar-img7.png', subject: 'History', class: '9 (B), 10 (A)', email: 'bessie.cooper@school.org', phone: '209.555.0156', joinDate: '23 Feb 2013', status: 'Inactive' },
-  { id: 8, teacherId: 'AD52372', name: 'Arlene McCoy', image: 'teacher-avatar-img8.png', subject: 'Economics', class: '11 (B), 12 (A)', email: 'arlene.mccoy@edu.org', phone: '209.555.0172', joinDate: '16 Oct 2019', status: 'Active' },
-  { id: 9, teacherId: 'AD52373', name: 'Annette Black', image: 'teacher-avatar-img9.png', subject: 'ICT', class: '8 (A), 9 (B)', email: 'annette@school.edu', phone: '209.555.0195', joinDate: '05 May 2020', status: 'Active' },
-  { id: 10, teacherId: 'AD52374', name: 'Guy Hawkins', image: 'teacher-avatar-img2.png', subject: 'Accounting', class: '10 (A), 11 (A)', email: 'guy.hawkins@edu.com', phone: '209.555.0184', joinDate: '11 Dec 2017', status: 'Inactive' },
-  { id: 11, teacherId: 'AD52375', name: 'Theresa Webb', image: 'teacher-avatar-img9.png', subject: 'Computer Science', class: '11 (B), 12 (A)', email: 'theresa.webb@school.edu', phone: '209.555.0217', joinDate: '29 Mar 2019', status: 'Active' },
-  { id: 12, teacherId: 'AD52376', name: 'Kathryn Murphy', image: 'teacher-avatar-img6.png', subject: 'Environmental Science', class: '9 (A), 10 (B)', email: 'kathryn.murphy@college.edu', phone: '209.555.0259', joinDate: '03 Feb 2020', status: 'Inactive' },
-];
+/* Toast */
+const useToast = () => {
+  const [toasts, setToasts] = useState([]);
+  const add = (message, type = 'success') => {
+    const id = Date.now();
+    setToasts((p) => [...p, { id, message, type }]);
+    setTimeout(() => setToasts((p) => p.filter((t) => t.id !== id)), 4000);
+  };
+  return { toasts, success: (m) => add(m, 'success'), error: (m) => add(m, 'error') };
+};
 
-const TeacherList = () => {
-  // ---------- Filter state ----------
-  const [filters, setFilters] = useState({
-    subject: '',
-    status: '',
+const Toast = ({ toasts }) => (
+  <div style={{ position: 'fixed', top: 20, right: 20, zIndex: 9999, display: 'flex', flexDirection: 'column', gap: 10 }}>
+    {toasts.map((t) => (
+      <div key={t.id} style={{
+        display: 'flex', alignItems: 'center', gap: 10,
+        padding: '12px 18px', borderRadius: 10, minWidth: 280, maxWidth: 380,
+        background: t.type === 'success' ? '#16a34a' : '#dc2626',
+        color: '#fff', fontWeight: 600, fontSize: 14,
+        boxShadow: '0 4px 20px rgba(0,0,0,0.18)', animation: 'slideIn .3s ease',
+      }}>
+        <span style={{ fontSize: 18 }}>{t.type === 'success' ? '✅' : '❌'}</span>
+        {t.message}
+      </div>
+    ))}
+    <style>{`@keyframes slideIn{from{opacity:0;transform:translateX(60px)}to{opacity:1;transform:translateX(0)}}`}</style>
+  </div>
+);
+
+/* Helpers */
+const formatDate = (dateStr) => {
+  if (!dateStr) return '—';
+  return new Date(dateStr).toLocaleDateString('en-IN', {
+    day: '2-digit', month: 'short', year: 'numeric',
   });
-  const [search, setSearch] = useState('');
+};
 
-  // ---------- Selection & delete modal ----------
+const getInitials = (name = '') =>
+  name.split(' ').map((n) => n[0]).slice(0, 2).join('').toUpperCase();
+
+const AVATAR_COLORS = ['#4f46e5','#0891b2','#059669','#d97706','#dc2626','#7c3aed'];
+const avatarColor = (name = '') =>
+  AVATAR_COLORS[name.charCodeAt(0) % AVATAR_COLORS.length];
+
+/* Main Component  */
+const TeacherList = () => {
+  const { token } = useAuth();
+  const { toasts, success, error } = useToast();
+
+  // ── Data ──
+  const [teachers, setTeachers] = useState([]);
+  const [loading, setLoading]   = useState(true);
+  const [deleting, setDeleting] = useState(false);
+
+  // ── Filters ──
+  const [filters, setFilters] = useState({ department: '', status: '' });
+  const [search, setSearch]   = useState('');
+
+  // ── Selection & modal ──
   const [selectedIds, setSelectedIds] = useState([]);
   const [deleteModal, setDeleteModal] = useState({ open: false, teacherId: null, teacherName: '' });
 
-  // ---------- Pagination ----------
+  // ── Pagination ──
   const [rowsPerPage, setRowsPerPage] = useState(10);
   const [currentPage, setCurrentPage] = useState(1);
 
-  // ---------- Filtered data ----------
+  /* ── Fetch teachers for this school ── */
+  const fetchTeachers = useCallback(async () => {
+    setLoading(true);
+    try {
+      const response = await fetch('/api/teachers', {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.message || 'Failed to fetch teachers.');
+      setTeachers(data);
+    } catch (err) {
+      error(err.message);
+    } finally {
+      setLoading(false);
+    }
+  }, [token]);
+
+  useEffect(() => { fetchTeachers(); }, [fetchTeachers]);
+
+  /* ── Filter + search ── */
   const filteredTeachers = useMemo(() => {
-    return initialTeachers.filter((teacher) => {
-      // Search (name, teacherId, email, phone)
+    return teachers.filter((t) => {
       const matchesSearch =
         search === '' ||
-        teacher.name.toLowerCase().includes(search.toLowerCase()) ||
-        teacher.teacherId.toLowerCase().includes(search.toLowerCase()) ||
-        teacher.email.toLowerCase().includes(search.toLowerCase()) ||
-        teacher.phone.includes(search);
+        t.fullName?.toLowerCase().includes(search.toLowerCase()) ||
+        t.employeeId?.toLowerCase().includes(search.toLowerCase()) ||
+        t.email?.toLowerCase().includes(search.toLowerCase()) ||
+        t.phoneNumber?.includes(search);
 
-      // Filters
-      const matchesSubject = filters.subject === '' || teacher.subject === filters.subject;
-      const matchesStatus = filters.status === '' || teacher.status === filters.status;
+      const matchesDept   = filters.department === '' || t.department === filters.department;
+      const matchesStatus =
+        filters.status === '' ||
+        (filters.status === 'Active' ? t.isActive === true : t.isActive === false);
 
-      return matchesSearch && matchesSubject && matchesStatus;
+      return matchesSearch && matchesDept && matchesStatus;
     });
-  }, [filters, search]);
+  }, [teachers, filters, search]);
 
-  // Paginated data
+  /* ── Pagination ── */
+  const totalPages = Math.max(1, Math.ceil(filteredTeachers.length / rowsPerPage));
+
   const paginatedTeachers = useMemo(() => {
     const start = (currentPage - 1) * rowsPerPage;
     return filteredTeachers.slice(start, start + rowsPerPage);
   }, [filteredTeachers, currentPage, rowsPerPage]);
 
-  const totalPages = Math.ceil(filteredTeachers.length / rowsPerPage);
-
-  // ---------- Handlers ----------
+  /* ── Handlers ── */
   const handleFilterChange = (e) => {
     const { id, value } = e.target;
     setFilters((prev) => ({ ...prev, [id]: value }));
@@ -69,68 +122,86 @@ const TeacherList = () => {
   };
 
   const resetFilters = () => {
-    setFilters({ subject: '', status: '' });
+    setFilters({ department: '', status: '' });
     setSearch('');
     setCurrentPage(1);
   };
 
-  const handleSearch = (e) => {
-    setSearch(e.target.value);
-    setCurrentPage(1);
-  };
+  const handleSearch    = (e) => { setSearch(e.target.value); setCurrentPage(1); };
+  const handleSelectAll = (e) => setSelectedIds(e.target.checked ? paginatedTeachers.map((t) => t._id) : []);
+  const handleSelectRow = (id) => setSelectedIds((prev) => prev.includes(id) ? prev.filter((i) => i !== id) : [...prev, id]);
 
-  const handleSelectAll = (e) => {
-    if (e.target.checked) {
-      setSelectedIds(paginatedTeachers.map((t) => t.id));
-    } else {
-      setSelectedIds([]);
+  const openDeleteModal  = (t) => setDeleteModal({ open: true, teacherId: t._id, teacherName: t.fullName });
+  const closeDeleteModal = () => setDeleteModal({ open: false, teacherId: null, teacherName: '' });
+
+  /* ── Delete ── */
+  const confirmDelete = async () => {
+    setDeleting(true);
+    try {
+      const response = await fetch(`/api/teachers/${deleteModal.teacherId}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.message || 'Failed to delete teacher.');
+      setTeachers((prev) => prev.filter((t) => t._id !== deleteModal.teacherId));
+      setSelectedIds((prev) => prev.filter((id) => id !== deleteModal.teacherId));
+      success(`"${deleteModal.teacherName}" deleted successfully.`);
+      closeDeleteModal();
+    } catch (err) {
+      error(err.message);
+    } finally {
+      setDeleting(false);
     }
   };
 
-  const handleSelectRow = (id) => {
-    setSelectedIds((prev) =>
-      prev.includes(id) ? prev.filter((i) => i !== id) : [...prev, id]
-    );
-  };
-
-  const openDeleteModal = (teacher) => {
-    setDeleteModal({ open: true, teacherId: teacher.id, teacherName: teacher.name });
-  };
-
-  const closeDeleteModal = () => {
-    setDeleteModal({ open: false, teacherId: null, teacherName: '' });
-  };
-
-  const confirmDelete = () => {
-    // Here you would call an API to delete/suspend
-    alert(`Suspend teacher ${deleteModal.teacherName} (ID: ${deleteModal.teacherId})`);
-    closeDeleteModal();
+  /* ── Toggle active status ── */
+  const toggleStatus = async (teacher) => {
+    try {
+      const response = await fetch(`/api/teachers/${teacher._id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ isActive: !teacher.isActive }),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.message || 'Failed to update status.');
+      setTeachers((prev) =>
+        prev.map((t) => t._id === teacher._id ? { ...t, isActive: !t.isActive } : t)
+      );
+      success(`Status updated for "${teacher.fullName}".`);
+    } catch (err) {
+      error(err.message);
+    }
   };
 
   const goToPage = (page) => {
     if (page >= 1 && page <= totalPages) setCurrentPage(page);
   };
 
-  const exportPDF = () => alert('Export as PDF');
-  const exportExcel = () => alert('Export as Excel');
+  /* ── Unique departments for filter ── */
+  const departments = useMemo(() =>
+    [...new Set(teachers.map((t) => t.department).filter(Boolean))].sort(),
+  [teachers]);
 
+  /* Render */
   return (
     <div className="dashboard-main-body">
+      <Toast toasts={toasts} />
+
       {/* Breadcrumb */}
       <div className="breadcrumb d-flex flex-wrap align-items-center justify-content-between gap-3 mb-24">
         <div>
           <h1 className="fw-semibold mb-4 h6 text-primary-light">Teacher List</h1>
           <div>
-            <Link to="/" className="text-secondary-light hover-text-primary hover-underline">
-              Dashboard
-            </Link>
+            <Link to="/" className="text-secondary-light hover-text-primary hover-underline">Dashboard</Link>
             <span className="text-secondary-light"> / Teacher List</span>
           </div>
         </div>
         <Link to="/teachers/add" className="btn btn-primary-600 d-flex align-items-center gap-6">
-          <span className="d-flex text-md">
-            <i className="ri-add-large-line"></i>
-          </span>
+          <span className="d-flex text-md"><i className="ri-add-large-line"></i></span>
           Add Teacher
         </Link>
       </div>
@@ -139,41 +210,31 @@ const TeacherList = () => {
       <div className="mt-24">
         <div className="card h-100">
           <div className="card-body p-0 dataTable-wrapper">
+
             {/* Toolbar */}
             <div className="d-flex align-items-center justify-content-between flex-wrap gap-16 px-20 py-12 border-bottom border-neutral-200">
               <div className="d-flex flex-wrap align-items-center gap-16">
-                {/* Export Dropdown */}
+
+                {/* Export */}
                 <div className="dropdown">
                   <button
                     type="button"
                     className="px-12 py-5-px border border-neutral-300 radius-8 d-flex align-items-center gap-20"
-                    data-bs-toggle="dropdown"
-                    aria-expanded="false"
+                    data-bs-toggle="dropdown" aria-expanded="false"
                   >
                     <span className="d-flex align-items-center gap-1 text-secondary-light text-sm">
-                      <i className="ri-file-upload-line text-md line-height-1"></i>
-                      Export
+                      <i className="ri-file-upload-line text-md line-height-1"></i> Export
                     </span>
-                    <span>
-                      <i className="ri-arrow-down-s-line"></i>
-                    </span>
+                    <i className="ri-arrow-down-s-line"></i>
                   </button>
                   <ul className="dropdown-menu p-12 border bg-base shadow">
                     <li>
-                      <button
-                        type="button"
-                        className="dropdown-item px-16 py-8 rounded text-secondary-light bg-hover-neutral-200 text-hover-neutral-900 d-flex align-items-center gap-10"
-                        onClick={exportPDF}
-                      >
+                      <button type="button" className="dropdown-item px-16 py-8 rounded text-secondary-light bg-hover-neutral-200 text-hover-neutral-900 d-flex align-items-center gap-10">
                         <i className="ri-file-3-line"></i> PDF
                       </button>
                     </li>
                     <li>
-                      <button
-                        type="button"
-                        className="dropdown-item px-16 py-8 rounded text-secondary-light bg-hover-neutral-200 text-hover-neutral-900 d-flex align-items-center gap-10"
-                        onClick={exportExcel}
-                      >
+                      <button type="button" className="dropdown-item px-16 py-8 rounded text-secondary-light bg-hover-neutral-200 text-hover-neutral-900 d-flex align-items-center gap-10">
                         <i className="ri-file-excel-line"></i> Excel
                       </button>
                     </li>
@@ -183,27 +244,24 @@ const TeacherList = () => {
                 {/* Search */}
                 <form className="navbar-search dt-search m-0" onSubmit={(e) => e.preventDefault()}>
                   <input
-                    type="text"
-                    className="dt-input bg-transparent radius-4"
-                    placeholder="Search..."
-                    value={search}
-                    onChange={handleSearch}
+                    type="text" className="dt-input bg-transparent radius-4"
+                    placeholder="Search name, ID, email..."
+                    value={search} onChange={handleSearch}
                   />
                   <iconify-icon icon="ion:search-outline" className="icon"></iconify-icon>
                 </form>
 
-                {/* Filter Dropdown */}
+                {/* Filter */}
                 <div className="dropdown">
                   <button
                     type="button"
                     className="px-12 py-5-px border border-neutral-300 radius-8 d-flex align-items-center gap-20"
-                    data-bs-toggle="dropdown"
-                    aria-expanded="false"
+                    data-bs-toggle="dropdown" aria-expanded="false"
                   >
-                    <span className="d-flex align-items-center gap-1 text-secondary-light text-sm">Filter</span>
-                    <span>
-                      <i className="ri-arrow-down-s-line"></i>
+                    <span className="d-flex align-items-center gap-1 text-secondary-light text-sm">
+                      <i className="ri-filter-3-line text-md"></i> Filter
                     </span>
+                    <i className="ri-arrow-down-s-line"></i>
                   </button>
                   <div className="dropdown-menu border bg-base shadow dropdown-menu-lg p-0">
                     <div className="d-flex align-items-center justify-content-between border-bottom py-8 px-16">
@@ -212,58 +270,28 @@ const TeacherList = () => {
                         <i className="ri-close-large-line"></i>
                       </button>
                     </div>
-
                     <form className="p-16" onSubmit={(e) => e.preventDefault()}>
                       <div className="row g-3">
                         <div className="col-12">
-                          <label htmlFor="subject" className="text-sm fw-semibold text-primary-light d-inline-block mb-8">
-                            Subject
-                          </label>
-                          <select
-                            id="subject"
-                            className="form-control form-select"
-                            value={filters.subject}
-                            onChange={handleFilterChange}
-                          >
-                            <option value="">Select Subject</option>
-                            <option value="Mathematics">Mathematics</option>
-                            <option value="Physics">Physics</option>
-                            <option value="Biology">Biology</option>
-                            <option value="Chemistry">Chemistry</option>
-                            <option value="English">English</option>
-                            <option value="Geography">Geography</option>
-                            <option value="History">History</option>
-                            <option value="Economics">Economics</option>
-                            <option value="ICT">ICT</option>
-                            <option value="Accounting">Accounting</option>
-                            <option value="Computer Science">Computer Science</option>
-                            <option value="Environmental Science">Environmental Science</option>
+                          <label htmlFor="department" className="text-sm fw-semibold text-primary-light d-inline-block mb-8">Department</label>
+                          <select id="department" className="form-control form-select" value={filters.department} onChange={handleFilterChange}>
+                            <option value="">All Departments</option>
+                            {departments.map((d) => <option key={d} value={d}>{d}</option>)}
                           </select>
                         </div>
                         <div className="col-12">
-                          <label htmlFor="status" className="text-sm fw-semibold text-primary-light d-inline-block mb-8">
-                            Status
-                          </label>
-                          <select
-                            id="status"
-                            className="form-control form-select"
-                            value={filters.status}
-                            onChange={handleFilterChange}
-                          >
-                            <option value="">Select Status</option>
+                          <label htmlFor="status" className="text-sm fw-semibold text-primary-light d-inline-block mb-8">Status</label>
+                          <select id="status" className="form-control form-select" value={filters.status} onChange={handleFilterChange}>
+                            <option value="">All</option>
                             <option value="Active">Active</option>
                             <option value="Inactive">Inactive</option>
                           </select>
                         </div>
                         <div className="col-6">
-                          <button type="reset" className="btn btn-danger-200 text-danger-600 w-100" onClick={resetFilters}>
-                            Reset
-                          </button>
+                          <button type="reset" className="btn btn-danger-200 text-danger-600 w-100" onClick={resetFilters}>Reset</button>
                         </div>
                         <div className="col-6">
-                          <button type="submit" className="btn btn-primary-600 w-100">
-                            Apply
-                          </button>
+                          <button type="button" className="btn btn-primary-600 w-100" onClick={() => document.activeElement?.blur()}>Apply</button>
                         </div>
                       </div>
                     </form>
@@ -276,18 +304,10 @@ const TeacherList = () => {
                 <span>Rows per page:</span>
                 <div className="dt-length">
                   <select
-                    className="dt-input form-control form-select"
-                    value={rowsPerPage}
-                    onChange={(e) => {
-                      setRowsPerPage(Number(e.target.value));
-                      setCurrentPage(1);
-                    }}
+                    className="dt-input form-control form-select" value={rowsPerPage}
+                    onChange={(e) => { setRowsPerPage(Number(e.target.value)); setCurrentPage(1); }}
                   >
-                    <option value="5">5</option>
-                    <option value="10">10</option>
-                    <option value="25">25</option>
-                    <option value="50">50</option>
-                    <option value="100">100</option>
+                    {[5, 10, 25, 50, 100].map((n) => <option key={n} value={n}>{n}</option>)}
                   </select>
                 </div>
               </div>
@@ -298,100 +318,94 @@ const TeacherList = () => {
               <table className="table bordered-table mb-0 data-table">
                 <thead>
                   <tr>
-                    <th scope="col">
-                      <div className="form-check style-check d-flex align-items-center">
-                        <input
-                          className="form-check-input"
-                          type="checkbox"
-                          checked={paginatedTeachers.length > 0 && selectedIds.length === paginatedTeachers.length}
-                          onChange={handleSelectAll}
-                        />
-                        <label className="form-check-label"> S.L </label>
-                      </div>
-                    </th>
-                    <th scope="col">ID</th>
+                    <th scope="col">Employee ID</th>
                     <th scope="col">Name</th>
-                    <th scope="col">Subject</th>
-                    <th scope="col">Class</th>
-                    <th scope="col">Email</th>
-                    <th scope="col">Phone Number</th>
+                    <th scope="col">Department</th>
+                    <th scope="col">Designation</th>
+                    <th scope="col">Subjects</th>
+                    <th scope="col">Mobile</th>
                     <th scope="col">Join Date</th>
                     <th scope="col">Status</th>
                     <th scope="col">Action</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {paginatedTeachers.map((teacher, index) => {
-                    const isSelected = selectedIds.includes(teacher.id);
+
+                  {/* Loading skeleton */}
+                  {loading && Array.from({ length: 6 }).map((_, i) => (
+                    <tr key={`sk-${i}`}>
+                      {Array.from({ length: 10 }).map((_, j) => (
+                        <td key={j}>
+                          <div style={{
+                            height: 14, borderRadius: 4,
+                            background: 'linear-gradient(90deg,#f0f0f0 25%,#e0e0e0 50%,#f0f0f0 75%)',
+                            backgroundSize: '200% 100%', animation: 'shimmer 1.5s infinite',
+                          }} />
+                        </td>
+                      ))}
+                    </tr>
+                  ))}
+
+                  {/* Data rows */}
+                  {!loading && paginatedTeachers.map((teacher, index) => {
+                    const isSelected = selectedIds.includes(teacher._id);
                     const sl = (currentPage - 1) * rowsPerPage + index + 1;
                     return (
-                      <tr key={teacher.id}>
+                      <tr key={teacher._id}>
+                        <td><span className="text-primary-600">{teacher.employeeId}</span></td>
                         <td>
-                          <div className="form-check style-check d-flex align-items-center">
-                            <input
-                              className="form-check-input"
-                              type="checkbox"
-                              checked={isSelected}
-                              onChange={() => handleSelectRow(teacher.id)}
-                            />
-                            <label className="form-check-label">{sl.toString().padStart(2, '0')}</label>
-                          </div>
-                        </td>
-                        <td>
-                          <span className="text-primary-600">{teacher.teacherId}</span>
-                        </td>
-                        <td>
-                          <div className="d-flex align-items-center">
-                            <img
-                              src={`/../src/assets/images/thumbs/${teacher.image}`}
-                              alt={teacher.name}
-                              className="flex-shrink-0 me-12 radius-8"
-                              style={{ width: '40px', height: '40px', objectFit: 'cover' }}
-                            />
+                          <div className="d-flex align-items-center gap-10">
+                            {/* Initials avatar */}
+                            <div
+                              className="flex-shrink-0 d-flex align-items-center justify-content-center fw-bold radius-8"
+                              style={{
+                                width: 40, height: 40, borderRadius: 8, fontSize: 14,
+                                background: `${avatarColor(teacher.fullName)}22`,
+                                color: avatarColor(teacher.fullName),
+                              }}
+                            >
+                              {getInitials(teacher.fullName)}
+                            </div>
                             <div>
-                              <h6 className="text-md mb-0 fw-medium">{teacher.name}</h6>
+                              <h6 className="text-md mb-0 fw-medium">{teacher.fullName}</h6>
+                              <span className="text-sm text-secondary-light">{teacher.email}</span>
                             </div>
                           </div>
                         </td>
-                        <td>{teacher.subject}</td>
-                        <td>{teacher.class}</td>
-                        <td>{teacher.email}</td>
-                        <td>{teacher.phone}</td>
-                        <td>{teacher.joinDate}</td>
+                        <td>{teacher.department || '—'}</td>
+                        <td>{teacher.designation || '—'}</td>
                         <td>
-                          <span
-                            className={`${
-                              teacher.status === 'Active'
-                                ? 'bg-success-100 text-success-600'
-                                : 'bg-danger-100 text-danger-600'
-                            } px-24 py-4 radius-4 fw-medium text-sm`}
-                          >
-                            {teacher.status}
+                          {teacher.subjectsTaught?.length
+                            ? teacher.subjectsTaught.join(', ')
+                            : '—'}
+                        </td>
+                        <td>{teacher.phoneNumber}</td>
+                        <td>{formatDate(teacher.joinDate)}</td>
+                        <td>
+                          <span className={`${teacher.isActive ? 'bg-success-100 text-success-600' : 'bg-danger-100 text-danger-600'} px-24 py-4 radius-4 fw-medium text-sm`}>
+                            {teacher.isActive ? 'Active' : 'Inactive'}
                           </span>
                         </td>
                         <td>
                           <div className="btn-group">
                             <button
-                              type="button"
-                              className="text-primary-light text-xl"
-                              data-bs-toggle="dropdown"
-                              data-bs-display="static"
-                              aria-expanded="false"
+                              type="button" className="text-primary-light text-xl"
+                              data-bs-toggle="dropdown" data-bs-display="static" aria-expanded="false"
                             >
                               <iconify-icon icon="tabler:dots-vertical"></iconify-icon>
                             </button>
                             <ul className="dropdown-menu dropdown-menu-lg-end border p-12">
                               <li>
                                 <Link
-                                  to="/students"
+                                  to={`/teachers/${teacher._id}`}
                                   className="dropdown-item rounded text-secondary-light bg-hover-neutral-200 text-hover-neutral-900 d-flex align-items-center gap-2 py-6"
                                 >
-                                  <i className="ri-user-3-line"></i> View Student
+                                  <i className="ri-eye-line"></i> View
                                 </Link>
                               </li>
                               <li>
                                 <Link
-                                  to="/teachers/edit"
+                                  to={`/teachers/edit/${teacher._id}`}
                                   state={{ teacher }}
                                   className="dropdown-item rounded text-secondary-light bg-hover-neutral-200 text-hover-neutral-900 d-flex align-items-center gap-2 py-6"
                                 >
@@ -401,9 +415,10 @@ const TeacherList = () => {
                               <li>
                                 <button
                                   className="dropdown-item rounded text-secondary-light bg-hover-neutral-200 text-hover-neutral-900 d-flex align-items-center gap-2 py-6"
-                                  onClick={() => alert('Inactive')}
+                                  onClick={() => toggleStatus(teacher)}
                                 >
-                                  <i className="ri-error-warning-line"></i> Inactive
+                                  <i className={`ri-${teacher.isActive ? 'pause' : 'play'}-circle-line`}></i>
+                                  {teacher.isActive ? 'Set Inactive' : 'Set Active'}
                                 </button>
                               </li>
                               <li>
@@ -420,55 +435,117 @@ const TeacherList = () => {
                       </tr>
                     );
                   })}
-                  {paginatedTeachers.length === 0 && (
+
+                  {/* Empty state */}
+                  {!loading && paginatedTeachers.length === 0 && (
                     <tr>
-                      <td colSpan="10" className="text-center py-20">
-                        No teachers found.
+                      <td colSpan="10" className="text-center py-40">
+                        <div style={{ fontSize: 48, marginBottom: 12 }}>👨‍🏫</div>
+                        <p className="text-secondary-light mb-0">No teachers found.</p>
+                        {(search || Object.values(filters).some(Boolean)) && (
+                          <button className="btn btn-sm btn-primary-600 mt-12" onClick={resetFilters}>
+                            Clear Filters
+                          </button>
+                        )}
                       </td>
                     </tr>
                   )}
                 </tbody>
               </table>
+              <style>{`
+                @keyframes shimmer {
+                  0%   { background-position: 200% 0; }
+                  100% { background-position: -200% 0; }
+                }
+              `}</style>
             </div>
 
-            {/* Simple Pagination */}
-            {filteredTeachers.length > 0 && (
-              <div className="d-flex justify-content-end align-items-center gap-3 p-20 border-top">
-                <button
-                  className="btn btn-outline-secondary btn-sm"
-                  disabled={currentPage === 1}
-                  onClick={() => goToPage(currentPage - 1)}
-                >
-                  Previous
-                </button>
-                <span>
-                  Page {currentPage} of {totalPages}
+            {/* Pagination */}
+            {!loading && filteredTeachers.length > 0 && (
+              <div className="d-flex justify-content-between align-items-center gap-3 px-20 py-16 border-top">
+                <span className="text-secondary-light text-sm">
+                  Showing {(currentPage - 1) * rowsPerPage + 1}–{Math.min(currentPage * rowsPerPage, filteredTeachers.length)} of {filteredTeachers.length} teachers
                 </span>
-                <button
-                  className="btn btn-outline-secondary btn-sm"
-                  disabled={currentPage === totalPages}
-                  onClick={() => goToPage(currentPage + 1)}
-                >
-                  Next
-                </button>
+                <div className="d-flex align-items-center gap-8">
+                  <button
+                    className="btn btn-outline-secondary btn-sm"
+                    disabled={currentPage === 1}
+                    onClick={() => goToPage(currentPage - 1)}
+                  >
+                    <i className="ri-arrow-left-s-line"></i> Previous
+                  </button>
+
+                  {Array.from({ length: totalPages }, (_, i) => i + 1)
+                    .filter((p) => p === 1 || p === totalPages || Math.abs(p - currentPage) <= 1)
+                    .reduce((acc, p, i, arr) => {
+                      if (i > 0 && p - arr[i - 1] > 1) acc.push('...');
+                      acc.push(p);
+                      return acc;
+                    }, [])
+                    .map((p, i) =>
+                      p === '...'
+                        ? <span key={`dot-${i}`} className="px-8 text-secondary-light">…</span>
+                        : <button
+                            key={p}
+                            className={`btn btn-sm ${currentPage === p ? 'btn-primary-600' : 'btn-outline-secondary'}`}
+                            onClick={() => goToPage(p)}
+                          >{p}</button>
+                    )
+                  }
+
+                  <button
+                    className="btn btn-outline-secondary btn-sm"
+                    disabled={currentPage === totalPages}
+                    onClick={() => goToPage(currentPage + 1)}
+                  >
+                    Next <i className="ri-arrow-right-s-line"></i>
+                  </button>
+                </div>
               </div>
             )}
           </div>
         </div>
       </div>
 
-      {/* Delete/Suspend Confirmation Modal */}
-      <ConfirmModal
-        show={deleteModal.open}
-        onClose={closeDeleteModal}
-        onConfirm={confirmDelete}
-        title={`Suspend ${deleteModal.teacherName}?`}
-        message="Are you sure you want to suspend this teacher?"
-        confirmText="Yes, Suspend"
-        cancelText="Cancel"
-        icon="fluent:delete-24-regular"
-        variant="danger"
-      />
+      {/* Delete Modal */}
+      {deleteModal.open && (
+        <div className="modal fade show d-block" tabIndex="-1" style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}>
+          <div className="modal-dialog modal-sm modal-dialog-centered max-w-340-px">
+            <div className="modal-content radius-16 bg-base">
+              <div className="modal-body pt-32 px-36 pb-24 text-center">
+                <span className="mb-16 fs-1 line-height-1 text-danger">
+                  <iconify-icon icon="fluent:delete-24-regular"></iconify-icon>
+                </span>
+                <h6 className="text-lg fw-semibold text-primary-light mb-0">
+                  Are you sure you want to delete <br />
+                  <span className="text-danger-600">"{deleteModal.teacherName}"</span>?
+                </h6>
+                <p className="text-sm text-secondary-light mt-8 mb-0">This action cannot be undone.</p>
+                <div className="d-flex align-items-center justify-content-center gap-3 mt-24">
+                  <button
+                    type="button"
+                    className="flex-grow-1 border border-neutral-400 bg-hover-neutral-200 text-secondary-light text-md px-24 py-11 radius-8"
+                    onClick={closeDeleteModal} disabled={deleting}
+                    style={{ background: 'none', cursor: 'pointer' }}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    className="flex-grow-1 btn btn-danger-600 border border-danger-600 text-md px-16 py-12 radius-8"
+                    onClick={confirmDelete} disabled={deleting}
+                  >
+                    {deleting
+                      ? <><span className="spinner-border spinner-border-sm me-2" />Deleting…</>
+                      : 'Yes, Delete'
+                    }
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

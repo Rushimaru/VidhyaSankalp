@@ -106,3 +106,49 @@ export const validateStudent = (f) => {
 
   return errors;
 };
+
+// ── Validate entire teacher form ─────────────────────────────────────────────
+
+export const validateTeacher = (f) => {
+  const errors = {};
+
+  const check = (field, ruleList) => {
+    const err = applyRules(f[field], ruleList);
+    if (err) errors[field] = err;
+  };
+
+  // Identity
+  check('employeeId',  [rules.required('Employee ID')]);
+  check('fullName',    [rules.required('Full name'), rules.maxLength(100, 'Full name')]);
+  check('gender',      [rules.required('Gender')]);
+  check('dateOfBirth', [rules.required('Date of birth')]);
+  check('category',    [rules.required('Category')]);
+  check('religion',    [rules.required('Religion')]);
+  check('nationality', [rules.required('Nationality')]);
+  check('aadharNumber', [rules.aadhar('Aadhar number')]); 
+  check('panNumber',   [(v) => v && !/^[A-Z]{5}[0-9]{4}[A-Z]{1}$/.test(v) ? 'Enter valid PAN (e.g. ABCDE1234F).' : null]);
+
+  // Professional
+  check('designation',   [rules.required('Designation')]);
+  check('department',    [rules.required('Department')]);
+  check('qualification', [rules.required('Qualification')]);
+  check('experience',    [rules.required('Experience')]);
+  check('joinDate',      [rules.required('Join date')]);
+
+  // Contact
+  check('phoneNumber', [rules.required('Phone number'), rules.phone('Phone number')]);
+  check('alternatePhone', [rules.phone('Alternate phone')]);
+  check('email',       [rules.required('Email'), rules.email('Email')]);
+
+  // Emergency contact 
+  check('emergencyContactPhone', [rules.phone('Emergency contact phone')]);
+
+  // Address
+  check('currentAddress', [rules.required('Current address')]);
+
+  // Login
+  check('loginEmail', [rules.required('Login email'), rules.email('Login email')]);
+  check('password',   [rules.required('Password'), rules.minLength(6, 'Password')]);
+
+  return errors;
+};

@@ -14940,3 +14940,75 @@ table.dataTable td.dt-type-date {
 [dir=rtl] .ri-arrow-left-s-line:before {
   content: "\ea6e";
 }
+
+/* Fix react-datepicker size issue */
+/* Base */
+.react-datepicker {
+  font-size: 13px !important;
+  border: none;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.12);
+}
+
+/* Header */
+.react-datepicker__header {
+  background: #f9fafb;
+  border-bottom: 1px solid #e5e7eb;
+  padding: 12px 10px;
+}
+
+/* Month title */
+.react-datepicker__current-month {
+  font-size: 15px !important;
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+
+/* Month + Year dropdown */
+.react-datepicker__month-dropdown,
+.react-datepicker__year-dropdown {
+  font-size: 13px;
+  border-radius: 6px;
+}
+
+/* Days grid */
+.react-datepicker__day,
+.react-datepicker__day-name {
+  width: 34px;
+  height: 34px;
+  line-height: 34px;
+  margin: 3px;
+  border-radius: 6px;
+}
+
+/* Hover */
+.react-datepicker__day:hover {
+  background: #eef2ff;
+}
+
+/* Selected day */
+.react-datepicker__day--selected {
+  background: #2563eb;
+  color: #fff;
+  font-weight: 500;
+}
+
+/* Today */
+.react-datepicker__day--today {
+  font-weight: 600;
+}
+
+/* Navigation arrows */
+.react-datepicker__navigation {
+  top: 14px;
+}
+
+/* Fix arrow alignment */
+.react-datepicker__triangle {
+  display: none; /* cleaner UI */
+}
+.react-datepicker__day--keyboard-selected {
+  background: #dbeafe;
+  color: #1d4ed8;
+}

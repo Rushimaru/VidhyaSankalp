@@ -23,12 +23,10 @@ import VerifyOtp from "./pages/auth/VerifyOtp";
 import Dashboard from "./pages/Dashboard";
 
 // Students
-import AddStudent from "./pages/students/Addstudent";
-import StudentList from "./pages/students/StudentList";
-import SuspendedStudent from "./pages/students/SuspendedStudent";
-import StudentCategory from "./pages/students/StudentCategories";
-import EditStudent from "./pages/students/EditStudent";
-import StudentDetails from "./pages/students/StudentDetails";
+import AddStudent from "./pages/Students/Addstudent";
+import StudentList from "./pages/Students/StudentList";
+import EditStudent from "./pages/Students/EditStudent";
+import StudentDetails from "./pages/Students/StudentDetails";
 
 // Teachers
 import AddNewTeacher from "./pages/teachers/AddNewTeacher";
@@ -194,16 +192,14 @@ const App = () => {
             {/* Students */}
             <Route path="students" element={<StudentList />} />
             <Route path="students/add" element={<AddStudent />} />
-            <Route path="students/edit" element={<EditStudent />} />
-            <Route path="students/details" element={<StudentDetails />} />
-            <Route path="students/suspend" element={<SuspendedStudent />} />
-            <Route path="students/categories" element={<StudentCategory />} />
+            <Route path="students/edit/:id" element={<EditStudent />} />
+            <Route path="students/:id" element={<StudentDetails />} />
 
             {/* Teachers */}
             <Route path="teachers" element={<TeacherList />} />
             <Route path="teachers/add" element={<AddNewTeacher />} />
-            <Route path="teachers/edit" element={<EditTeacher />} />
-            <Route path="teachers/details" element={<TeacherDetails />} />
+            <Route path="teachers/edit/:id" element={<EditTeacher />} />
+            <Route path="teachers/:id" element={<TeacherDetails />} />
             <Route path="teachers/timetable" element={<TeacherTimetable />} />
 
             {/* Guardians */}

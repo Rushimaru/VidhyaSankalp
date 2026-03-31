@@ -11,6 +11,7 @@ export const protect = async (req, res, next) => {
   try {
     const token = authHeader.split(' ')[1];
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
+
     req.user = await User.findById(decoded.id).select('-password');
 
     if (!req.user) {
@@ -19,7 +20,7 @@ export const protect = async (req, res, next) => {
 
     next();
   } catch (error) {
-    console.error('Auth middleware error:', error);
+    console.error('Auth middleware error:', error.message);
     res.status(401).json({ message: 'Not authorized, token failed.' });
   }
 };
