@@ -1,4 +1,3 @@
-// Login.jsx (front-end)
 import React, { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
@@ -10,18 +9,14 @@ const Login = () => {
   const [formData, setFormData] = useState({
     email: "",
     password: "",
-    remember: false,
   });
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
   const handleChange = (e) => {
-    const { id, value, type, checked } = e.target;
-    setFormData((prev) => ({
-      ...prev,
-      [id]: type === "checkbox" ? checked : value,
-    }));
+    const { id, value } = e.target;
+    setFormData((prev) => ({ ...prev, [id]: value }));
     setError("");
   };
 
@@ -46,7 +41,10 @@ const Login = () => {
         throw new Error(data.message || `Server error: ${response.status}`);
       }
 
+      // Saves token + user to sessionStorage and sets session cookie
+      // Everything is auto-destroyed when browser/tab is closed
       login(data.token, data.user);
+
       navigate("/");
     } catch (err) {
       setError(err.message);
@@ -57,6 +55,7 @@ const Login = () => {
 
   return (
     <div className="d-lg-flex bg-white min-vh-100">
+      {/* Left image panel */}
       <div className="w-50 d-lg-flex d-none overflow-hidden">
         <img
           src="../src/assets/images/thumbs/login-img.png"
@@ -65,6 +64,7 @@ const Login = () => {
         />
       </div>
 
+      {/* Right form panel */}
       <div className="lg-w-50 px-24 py-32 d-flex justify-content-center align-items-center">
         <div className="max-w-540-px mx-auto w-100">
           <Link to="/" className="d-inline-block">
@@ -72,9 +72,7 @@ const Login = () => {
           </Link>
 
           <div className="mt-32 mb-32">
-            <h1 className="h6 fw-bold text-primary-light mb-8">
-              Welcome Back
-            </h1>
+            <h1 className="h6 fw-bold text-primary-light mb-8">Welcome Back</h1>
             <p className="text-sm text-secondary-light mb-0">
               Log in to your account to continue
             </p>
@@ -88,6 +86,7 @@ const Login = () => {
 
           <form onSubmit={handleSubmit} className="d-flex flex-column gap-32">
             <div className="d-flex flex-column gap-16">
+              {/* Email */}
               <div>
                 <label
                   htmlFor="email"
@@ -107,6 +106,7 @@ const Login = () => {
                 />
               </div>
 
+              {/* Password */}
               <div>
                 <label
                   htmlFor="password"
@@ -127,19 +127,19 @@ const Login = () => {
                   />
                   <button
                     type="button"
-                    className="btn p-0 border-0 bg-transparent position-absolute end-0 top-50 translate-middle-y me-16 text-secondary-light cursor-pointer"
-                    onClick={() => setShowPassword(!showPassword)}
+                    className="btn p-0 border-0 bg-transparent position-absolute end-0 top-50 translate-middle-y me-16 text-secondary-light"
+                    onClick={() => setShowPassword((prev) => !prev)}
                     disabled={loading}
+                    aria-label="Toggle password visibility"
                   >
-                    <i
-                      className={`ri-${showPassword ? "eye-off" : "eye"}-line`}
-                    ></i>
+                    <i className={`ri-${showPassword ? "eye-off" : "eye"}-line`} />
                   </button>
                 </div>
               </div>
             </div>
 
-            <div className="d-flex justify-content-between gap-2">
+            {/* Forgot password */}
+            <div className="d-flex justify-content-end">
               <Link
                 to="/forgot-password"
                 className="text-primary-600 fw-medium text-decoration-underline"
@@ -148,15 +148,25 @@ const Login = () => {
               </Link>
             </div>
 
-            <div>
-              <button
-                type="submit"
-                className="btn btn-primary-600 text-sm btn-sm px-12 py-16 w-100 radius-8"
-                disabled={loading}
-              >
-                {loading ? "Logging in..." : "Log In"}
-              </button>
-            </div>
+            {/* Submit */}
+            <button
+              type="submit"
+              className="btn btn-primary-600 text-sm btn-sm px-12 py-16 w-100 radius-8"
+              disabled={loading}
+            >
+              {loading ? (
+                <>
+                  <span
+                    className="spinner-border spinner-border-sm me-2"
+                    role="status"
+                    aria-hidden="true"
+                  />
+                  Logging in...
+                </>
+              ) : (
+                "Log In"
+              )}
+            </button>
           </form>
 
           <div className="mt-32 text-center text-sm">
