@@ -3,19 +3,19 @@ import bcrypt from 'bcryptjs';
 
 const userSchema = new mongoose.Schema(
   {
-    name:          { type: String, required: true, trim: true },
-    email:         { type: String, required: true, unique: true, lowercase: true, trim: true },
-    password:      { type: String, required: true },
-    role:          { type: String, enum: ['superadmin', 'admin', 'faculty', 'student'], default: 'admin' },
+    name: { type: String, required: true, trim: true },
+    email: { type: String, required: true, unique: true, lowercase: true, trim: true },
+    password: { type: String, required: true },
+    role: { type: String, enum: ['superadmin', 'admin', 'faculty', 'student'], default: 'student' },
     institutionId: { type: mongoose.Schema.Types.ObjectId, ref: 'Institution', default: null },
 
     // OTP fields
-    otp:       { type: String },
+    otp: { type: String },
     otpExpiry: { type: Date },
     isVerified: { type: Boolean, default: false },
 
     // Profile
-    phone:  { type: String },
+    phone: { type: String },
     avatar: { type: String },
     isActive: { type: Boolean, default: true },
   },

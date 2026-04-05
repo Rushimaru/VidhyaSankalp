@@ -85,7 +85,8 @@ export const updateClass = async (req, res) => {
 
 export const deleteClass = async (req, res) => {
   try {
-    await Class.findOneAndDelete({ _id: req.params.id, institution: req.user.institutionId });
+    const cls = await Class.findOneAndDelete({ _id: req.params.id, institution: req.user.institutionId });
+    if (!cls) return res.status(404).json({ message: 'Class not found.' });
     res.json({ message: 'Class deleted.' });
   } catch (err) { res.status(500).json({ message: err.message }); }
 };
@@ -129,7 +130,8 @@ export const updateSubject = async (req, res) => {
 
 export const deleteSubject = async (req, res) => {
   try {
-    await Subject.findOneAndDelete({ _id: req.params.id, institution: req.user.institutionId });
+    const subject = await Subject.findOneAndDelete({ _id: req.params.id, institution: req.user.institutionId });
+    if (!subject) return res.status(404).json({ message: 'Subject not found.' });
     res.json({ message: 'Subject deleted.' });
   } catch (err) { res.status(500).json({ message: err.message }); }
 };
