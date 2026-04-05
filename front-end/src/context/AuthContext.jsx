@@ -1,6 +1,14 @@
-import React, { createContext, useContext, useState, useEffect } from "react";
+import React, { createContext, useContext, useState } from "react";
 
 const AuthContext = createContext();
+
+// Role → default redirect path
+export const roleHomeMap = {
+  superadmin: '/super-admin',
+  admin:      '/',
+  faculty:    '/faculty',
+  student:    '/student',
+};
 
 export const AuthProvider = ({ children }) => {
   const [token, setToken] = useState(() => sessionStorage.getItem("token") || null);
@@ -14,26 +22,22 @@ export const AuthProvider = ({ children }) => {
     sessionStorage.setItem("user", JSON.stringify(newUser));
     setToken(newToken);
     setUser(newUser);
-
-    // Session cookie — no expires, destroyed on browser close
     document.cookie = `userId=${newUser._id}; path=/; SameSite=Strict`;
   };
 
   const logout = () => {
     sessionStorage.removeItem("token");
     sessionStorage.removeItem("user");
-
-    // Destroy cookie immediately on logout
     document.cookie = "userId=; path=/; SameSite=Strict; max-age=0";
-
     setToken(null);
     setUser(null);
   };
 
   const isAuthenticated = !!token;
+  const userHome = user ? (roleHomeMap[user.role] || '/') : '/auth/login';
 
   return (
-    <AuthContext.Provider value={{ token, user, login, logout, isAuthenticated }}>
+    <AuthContext.Provider value={{ token, user, login, logout, isAuthenticated, userHome }}>
       {children}
     </AuthContext.Provider>
   );
@@ -41,8 +45,6 @@ export const AuthProvider = ({ children }) => {
 
 export const useAuth = () => {
   const context = useContext(AuthContext);
-  if (!context) {
-    throw new Error("useAuth must be used within an AuthProvider");
-  }
+  if (!context) throw new Error("useAuth must be used within an AuthProvider");
   return context;
 };

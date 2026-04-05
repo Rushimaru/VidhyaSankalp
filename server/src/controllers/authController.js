@@ -2,26 +2,24 @@ import User from '../models/User.js';
 import generateToken from '../utils/generateToken.js';
 import crypto from 'crypto';
 
-// @desc    Login user
+// @desc    Login user (all roles: superadmin, admin, faculty, student)
 // @route   POST /api/auth/login
 export const loginUser = async (req, res) => {
   const { email, password } = req.body;
-
   try {
     if (!email || !password) {
       return res.status(400).json({ message: 'Email and password are required.' });
     }
-
     const user = await User.findOne({ email });
-
     if (!user || !(await user.matchPassword(password))) {
       return res.status(401).json({ message: 'Invalid email or password.' });
     }
-
     if (!user.isVerified) {
       return res.status(401).json({ message: 'Please verify your email before logging in.' });
     }
-
+    if (!user.isActive) {
+      return res.status(403).json({ message: 'Your account has been deactivated. Contact your administrator.' });
+    }
     res.json({
       token: generateToken(user._id),
       user: {
@@ -29,6 +27,7 @@ export const loginUser = async (req, res) => {
         name: user.name,
         email: user.email,
         role: user.role,
+        institutionId: user.institutionId,
       },
     });
   } catch (error) {
@@ -37,36 +36,22 @@ export const loginUser = async (req, res) => {
   }
 };
 
-// @desc    Register user
+// @desc    Register user (creates admin for new institution, or self-register)
 // @route   POST /api/auth/register
 export const registerUser = async (req, res) => {
   const { name, email, password } = req.body;
-
   try {
     if (!name || !email || !password) {
       return res.status(400).json({ message: 'All fields are required.' });
     }
-
     const userExists = await User.findOne({ email });
     if (userExists) {
       return res.status(400).json({ message: 'User already exists.' });
     }
-
     const otp = crypto.randomInt(100000, 999999).toString();
-    const otpExpiry = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
-
-    await User.create({
-      name,
-      email,
-      password,
-      otp,
-      otpExpiry,
-      isVerified: false,
-    });
-
-    // TODO: Send OTP via email (e.g. Nodemailer / SendGrid)
+    const otpExpiry = new Date(Date.now() + 10 * 60 * 1000);
+    await User.create({ name, email, password, otp, otpExpiry, isVerified: false, role: 'admin' });
     console.log(`OTP for ${email}: ${otp}`);
-
     res.status(201).json({ message: 'OTP sent to your email. Please verify.' });
   } catch (error) {
     console.error('Register error:', error);
@@ -78,29 +63,15 @@ export const registerUser = async (req, res) => {
 // @route   POST /api/auth/verify-otp
 export const verifyOtp = async (req, res) => {
   const { email, otp } = req.body;
-
   try {
     if (!email || !otp) {
       return res.status(400).json({ message: 'Email and OTP are required.' });
     }
-
     const user = await User.findOne({ email });
-
-    if (!user) {
-      return res.status(404).json({ message: 'User not found.' });
-    }
-
-    if (user.isVerified) {
-      return res.status(400).json({ message: 'Email already verified.' });
-    }
-
-    if (user.otp !== otp) {
-      return res.status(400).json({ message: 'Invalid OTP.' });
-    }
-
-    if (user.otpExpiry < new Date()) {
-      return res.status(400).json({ message: 'OTP has expired. Please register again.' });
-    }
+    if (!user) return res.status(404).json({ message: 'User not found.' });
+    if (user.isVerified) return res.status(400).json({ message: 'Email already verified.' });
+    if (user.otp !== otp) return res.status(400).json({ message: 'Invalid OTP.' });
+    if (user.otpExpiry < new Date()) return res.status(400).json({ message: 'OTP has expired.' });
 
     user.isVerified = true;
     user.otp = undefined;
@@ -115,6 +86,7 @@ export const verifyOtp = async (req, res) => {
         name: user.name,
         email: user.email,
         role: user.role,
+        institutionId: user.institutionId,
       },
     });
   } catch (error) {

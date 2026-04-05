@@ -1,40 +1,31 @@
 import Teacher from '../models/Teacher.js';
 
+// Helper: resolve schoolId from new or old system
+const getSchoolId = (user) => user.institutionId || user._id;
+
 // Add new teacher
 export const addTeacher = async (req, res) => {
   try {
-    const schoolId = req.user._id;
+    const schoolId = getSchoolId(req.user);
     const { employeeId, loginEmail } = req.body;
-
     const [empExists, emailExists] = await Promise.all([
       Teacher.findOne({ employeeId, schoolId }),
       Teacher.findOne({ loginEmail }),
     ]);
-
-    if (empExists)   return res.status(400).json({ message: 'Employee ID already exists in your school.' });
+    if (empExists) return res.status(400).json({ message: 'Employee ID already exists in your school.' });
     if (emailExists) return res.status(400).json({ message: 'Login email is already in use.' });
-
     const teacher = await Teacher.create({ ...req.body, schoolId });
-
     res.status(201).json({
       message: 'Teacher added successfully.',
-      teacher: {
-        _id:        teacher._id,
-        employeeId: teacher.employeeId,
-        fullName:   teacher.fullName,
-        designation: teacher.designation,
-        department:  teacher.department,
-      },
+      teacher: { _id: teacher._id, employeeId: teacher.employeeId, fullName: teacher.fullName, designation: teacher.designation, department: teacher.department },
     });
   } catch (error) {
-    console.error('Add teacher error:', error.message);
     if (error.code === 11000) {
       const field = Object.keys(error.keyPattern)[0];
       return res.status(400).json({ message: `${field} already exists.` });
     }
     if (error.name === 'ValidationError') {
-      const messages = Object.values(error.errors).map((e) => e.message);
-      return res.status(400).json({ message: messages.join(', ') });
+      return res.status(400).json({ message: Object.values(error.errors).map(e => e.message).join(', ') });
     }
     res.status(500).json({ message: 'Server error: ' + error.message });
   }
@@ -43,12 +34,17 @@ export const addTeacher = async (req, res) => {
 // Get all teachers for school
 export const getTeachers = async (req, res) => {
   try {
-    const teachers = await Teacher.find({ schoolId: req.user._id })
-      .select('-password')
-      .sort({ createdAt: -1 });
+    const schoolId = getSchoolId(req.user);
+    const filter = { schoolId };
+    if (req.query.search) {
+      filter.$or = [
+        { fullName: { $regex: req.query.search, $options: 'i' } },
+        { employeeId: { $regex: req.query.search, $options: 'i' } },
+      ];
+    }
+    const teachers = await Teacher.find(filter).select('-password').sort({ createdAt: -1 });
     res.json(teachers);
   } catch (error) {
-    console.error('Get teachers error:', error.message);
     res.status(500).json({ message: 'Server error.' });
   }
 };
@@ -56,12 +52,11 @@ export const getTeachers = async (req, res) => {
 // Get single teacher
 export const getTeacherById = async (req, res) => {
   try {
-    const teacher = await Teacher.findOne({ _id: req.params.id, schoolId: req.user._id })
-      .select('-password');
+    const schoolId = getSchoolId(req.user);
+    const teacher = await Teacher.findOne({ _id: req.params.id, schoolId }).select('-password');
     if (!teacher) return res.status(404).json({ message: 'Teacher not found.' });
     res.json(teacher);
   } catch (error) {
-    console.error('Get teacher error:', error.message);
     res.status(500).json({ message: 'Server error.' });
   }
 };
@@ -69,22 +64,18 @@ export const getTeacherById = async (req, res) => {
 // Update teacher
 export const updateTeacher = async (req, res) => {
   try {
+    const schoolId = getSchoolId(req.user);
     const { schoolId: _, password, ...updateData } = req.body;
     if (password && password.trim()) updateData.password = password;
-
     const teacher = await Teacher.findOneAndUpdate(
-      { _id: req.params.id, schoolId: req.user._id },
-      updateData,
-      { new: true, runValidators: true }
+      { _id: req.params.id, schoolId },
+      updateData, { new: true, runValidators: true }
     ).select('-password');
-
     if (!teacher) return res.status(404).json({ message: 'Teacher not found.' });
     res.json({ message: 'Teacher updated successfully.', teacher });
   } catch (error) {
-    console.error('Update teacher error:', error.message);
     if (error.name === 'ValidationError') {
-      const messages = Object.values(error.errors).map((e) => e.message);
-      return res.status(400).json({ message: messages.join(', ') });
+      return res.status(400).json({ message: Object.values(error.errors).map(e => e.message).join(', ') });
     }
     res.status(500).json({ message: 'Server error.' });
   }
@@ -93,11 +84,23 @@ export const updateTeacher = async (req, res) => {
 // Delete teacher
 export const deleteTeacher = async (req, res) => {
   try {
-    const teacher = await Teacher.findOneAndDelete({ _id: req.params.id, schoolId: req.user._id });
+    const schoolId = getSchoolId(req.user);
+    const teacher = await Teacher.findOneAndDelete({ _id: req.params.id, schoolId });
     if (!teacher) return res.status(404).json({ message: 'Teacher not found.' });
     res.json({ message: 'Teacher deleted successfully.' });
   } catch (error) {
-    console.error('Delete teacher error:', error.message);
+    res.status(500).json({ message: 'Server error.' });
+  }
+};
+
+// Get teacher stats
+export const getTeacherStats = async (req, res) => {
+  try {
+    const schoolId = getSchoolId(req.user);
+    const total = await Teacher.countDocuments({ schoolId });
+    const active = await Teacher.countDocuments({ schoolId, isActive: true });
+    res.json({ total, active, inactive: total - active });
+  } catch (error) {
     res.status(500).json({ message: 'Server error.' });
   }
 };

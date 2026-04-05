@@ -1,5 +1,6 @@
 import React, { useState } from "react";
-import { Link, useLocation } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
+import { useAuth } from "../context/AuthContext";
 
 // Menu configuration with routes
 const menuItems = [
@@ -221,6 +222,8 @@ const orderedItems = [
 // Sidebar Component
 const Sidebar = () => {
   const location = useLocation();
+  const navigate = useNavigate();
+  const { user, logout } = useAuth();
   const currentPath = location.pathname;
   const getInitialOpen = () => {
     const open = {};
@@ -346,10 +349,10 @@ const Sidebar = () => {
                 />
                 <span className="profile-dropdown__contents">
                   <span className="h6 mb-0 text-md d-block text-primary-light">
-                    Jone Copper
+                    {user?.name || 'User'}
                   </span>
                   <span className="text-secondary-light text-sm mb-0 d-block">
-                    Admin
+                    {user?.role ? user.role.charAt(0).toUpperCase() + user.role.slice(1) : 'Admin'}
                   </span>
                 </span>
               </span>
@@ -377,12 +380,13 @@ const Sidebar = () => {
                   </Link>
                 </li>
                 <li>
-                  <Link
-                    to="/auth/login"
-                    className="dropdown-item rounded text-secondary-light bg-hover-neutral-200 text-hover-neutral-900 d-flex align-items-center gap-2 py-6"
+                  <button
+                    type="button"
+                    onClick={() => { logout(); navigate('/auth/login'); }}
+                    className="dropdown-item rounded text-secondary-light bg-hover-neutral-200 text-hover-neutral-900 d-flex align-items-center gap-2 py-6 border-0 bg-transparent w-100 text-start"
                   >
                     <i className="ri-shut-down-line"></i> Log Out
-                  </Link>
+                  </button>
                 </li>
               </ul>
             )}

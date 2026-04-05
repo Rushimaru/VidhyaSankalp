@@ -3,13 +3,21 @@ import bcrypt from 'bcryptjs';
 
 const userSchema = new mongoose.Schema(
   {
-    name: { type: String, required: true },
-    email: { type: String, required: true, unique: true, lowercase: true },
-    password: { type: String, required: true },
-    otp: { type: String },
+    name:          { type: String, required: true, trim: true },
+    email:         { type: String, required: true, unique: true, lowercase: true, trim: true },
+    password:      { type: String, required: true },
+    role:          { type: String, enum: ['superadmin', 'admin', 'faculty', 'student'], default: 'admin' },
+    institutionId: { type: mongoose.Schema.Types.ObjectId, ref: 'Institution', default: null },
+
+    // OTP fields
+    otp:       { type: String },
     otpExpiry: { type: Date },
     isVerified: { type: Boolean, default: false },
-    role: { type: String, default: 'user' },
+
+    // Profile
+    phone:  { type: String },
+    avatar: { type: String },
+    isActive: { type: Boolean, default: true },
   },
   { timestamps: true }
 );

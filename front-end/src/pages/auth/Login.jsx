@@ -1,15 +1,12 @@
 import React, { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { useAuth } from "../../context/AuthContext";
+import { useAuth, roleHomeMap } from "../../context/AuthContext";
 
 const Login = () => {
   const navigate = useNavigate();
   const { login } = useAuth();
 
-  const [formData, setFormData] = useState({
-    email: "",
-    password: "",
-  });
+  const [formData, setFormData] = useState({ email: "", password: "" });
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -24,28 +21,20 @@ const Login = () => {
     e.preventDefault();
     setLoading(true);
     setError("");
-
     try {
-      const response = await fetch("/api/auth/login", {
+      const response = await fetch("http://localhost:5000/api/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          email: formData.email,
-          password: formData.password,
-        }),
+        body: JSON.stringify({ email: formData.email, password: formData.password }),
       });
-
       const data = await response.json();
+      if (!response.ok) throw new Error(data.message || `Server error: ${response.status}`);
 
-      if (!response.ok) {
-        throw new Error(data.message || `Server error: ${response.status}`);
-      }
-
-      // Saves token + user to sessionStorage and sets session cookie
-      // Everything is auto-destroyed when browser/tab is closed
       login(data.token, data.user);
 
-      navigate("/");
+      // Redirect based on role
+      const destination = roleHomeMap[data.user.role] || "/";
+      navigate(destination, { replace: true });
     } catch (err) {
       setError(err.message);
     } finally {
